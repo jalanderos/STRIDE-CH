@@ -1,15 +1,22 @@
 """
 """
 import os
+import sunpy.map
 import numpy as np
+import pandas as pd
 from scipy import ndimage
+import astropy.units as u
+from datetime import datetime
+from sunpy.coordinates import frames
 from skimage import morphology, filters
 from moviepy.video.io import ImageSequenceClip
 
+import prepare_data
 
 # Module variables
 DICT_DATE_STR_FORMAT = '%Y_%m_%d__%H_%M'
 HE_OBS_DATE_STR_FORMAT = '%Y-%m-%dT%H:%M:%S'
+SOLAR_AREA = 4*np.pi*(1*u.solRad).to(u.Mm)**2
 MIN_SIZE = 5000
 EMPTY_DISK_VAL = 0
 
@@ -324,7 +331,7 @@ def get_ranked_map(array, ch_mask, apply_gradient, hist_stat,
     return ranked_map
 
 
-# Segmentation Summary Outcome Functions
+# Segmentation Outcome Functions
 def get_thresh_area_percent_list(array, percent_of_peak_list):
     """Retrieve the area percentage of pixels accepted by varied thresholds.
     """
@@ -355,33 +362,6 @@ def get_parameter_stats(area_percent_list):
     selected_parameter_num = np.count_nonzero(area_percent_list > cutoff)
     
     return max_diff, cutoff, selected_parameter_num, pixel_percent_diffs
-
-
-def get_area_percent_list(ch_mask_list):
-    """Retrieve the percentage of pixels detected in each segmentation
-    in a list.
-    
-    Args
-        array: image to process
-        ch_mask_list: binary coronal holes mask list
-    Returns
-        List of pixel percentage detected in segmentations.
-    """
-    return [np.count_nonzero(ch_mask)*100/ch_mask.size
-            for ch_mask in ch_mask_list]
-
-
-def get_num_ch_list(ch_mask_list):
-    """Retrieve the number of CHs detected in each segmentation in a list.
-    
-    Args
-        array: image to process
-        ch_mask_list: binary coronal holes mask list
-    Returns
-        List of number of CHs detected in segmentations.
-    """    
-    return [ndimage.label(ch_mask)[1]
-            for ch_mask in ch_mask_list]
 
 
 def get_ch_gradient_median_list(array, ch_mask_list): 
@@ -443,6 +423,281 @@ def get_ch_lower_tail_width_list(array, ch_mask_list):
     return lower_tail_width_list
 
 
+def get_px_percent_list(ch_mask_list):
+    """Retrieve the percentage of pixels detected in each segmentation
+    in a list.
+    
+    Args
+        array: image to process
+        ch_mask_list: binary coronal holes mask list
+    Returns
+        List of pixel percentage detected in segmentations.
+    """
+    disk_px_count = np.count_nonzero(~np.isnan(ch_mask_list[0]))
+    return [np.count_nonzero(ch_mask)*100/disk_px_count
+            for ch_mask in ch_mask_list]
+
+
+def get_num_ch_list(ch_mask_list):
+    """Retrieve the number of CHs detected in each segmentation in a list.
+    
+    Args
+        array: image to process
+        ch_mask_list: binary coronal holes mask list
+    Returns
+        List of number of CHs detected in segmentations.
+    """    
+    return [ndimage.label(ch_mask)[1]
+            for ch_mask in ch_mask_list]
+
+
+def get_area_percent(ensemble_map, confidence_level):
+    """Retrieve detected area in an ensemble map at a given
+    confidence level as a percentage and in Mm^2.
+    
+    Args
+        ensemble_map: Sunpy map object of ensemble detection map
+        confidence_level: confidence level at which to threshold ensemble maps
+            for computing area
+    Returns
+        Detected area as a percentage of total solar surface area.
+    """
+    obstime = ensemble_map.date
+    B0 = ensemble_map.center.observer.lat
+    
+    # Convert Helioprojective angular change per pixel
+    # to distance change per pixel in a Heliocentric frame
+    hp_delta_coords = frames.Helioprojective(
+        ensemble_map.scale.axis1*u.pix,
+        ensemble_map.scale.axis2*u.pix,
+        observer='earth', obstime=obstime
+    )
+    hc_delta_coords = hp_delta_coords.transform_to(
+        frames.Heliocentric(observer='earth', obstime=obstime)
+    )
+
+    # Area covered by a normal to line of sight square pixel in Mm^2
+    A_per_square_px = np.abs(
+        hc_delta_coords.x.to(u.Mm)*hc_delta_coords.y.to(u.Mm)
+    )
+    
+    if confidence_level <= 0:
+        confidence_level = 1e-3
+
+    # Detected pixels at a confidence level
+    pixel_locs = np.argwhere(ensemble_map.data >= confidence_level)*u.pix
+
+    # Convert detected pixels to Helioprojective Sky Coords
+    pixel_hp_coords = ensemble_map.pixel_to_world(
+        pixel_locs[:,1],pixel_locs[:,0]
+    )
+    
+    # Convert detected Helioprojective Sky Coords to Heliographic lon, lat
+    raw_pixel_hg_coords = pixel_hp_coords.transform_to(
+        frames.HeliographicStonyhurst(obstime=obstime)
+    )
+    # Remove pixels with failed conversion and longitudes outside (-90,90)
+    pixel_hg_coords = raw_pixel_hg_coords[
+        np.where(~np.isnan(raw_pixel_hg_coords.lon) 
+                & ~(np.abs(raw_pixel_hg_coords.lon.to(u.deg).value) >= 90))
+    ]
+    
+    # Compute area per pixel while accounting for foreshortening
+    pixel_lons = pixel_hg_coords.lon.to(u.rad).value
+    pixel_lats = pixel_hg_coords.lat.to(u.rad).value - B0.to(u.rad).value
+    pixel_areas = A_per_square_px/(np.cos(pixel_lons)*np.cos(pixel_lats))
+
+    # Sum area detected in all pixels
+    area = np.sum(pixel_areas)
+    area_percent = area/SOLAR_AREA*100
+    
+    return area_percent.value, area.value
+
+
+def get_thresh_outcome_dfs(he_date_str_list, percent_of_peak_list,
+                           he_dir, pre_process_map_save_dir):
+    """Retrieve dataframes with thresholded map outcomes at specified
+    threshold levels over time.
+    
+    Args
+        he_date_str_list: list of date strings for ensemble maps
+        percent_of_peak_list: list of float percentage values
+            at which to take threshold
+        he_dir: path to directory with saved He I observations
+        pre_process_map_save_dir: path to directory with saved ensemble maps
+    Returns
+        Dataframes of outcomes by confidence level over time.
+    """
+    # List for outcomes at varied confidence levels and datetimes
+    num_ch_by_thresh_list = []
+    area_percent_by_thresh_list = []
+    area_by_thresh_list = []
+    px_percent_by_thresh_list = []
+
+    for he_date_str in he_date_str_list:
+        
+        he_file = f'{he_dir}{he_date_str}.fts'
+        he_map = prepare_data.get_solis_sunpy_map(he_file)
+        if not he_map:
+            print(f'{he_date_str} He I observation extraction failed.')
+            continue
+        
+        # Extract saved pre-processed map
+        pre_process_file = (pre_process_map_save_dir + he_date_str
+                            + '_pre_processed_map.npy')
+        pre_processed_map_data = np.load(pre_process_file, allow_pickle=True)[-1]
+        pre_processed_map = sunpy.map.Map(
+            np.flipud(pre_processed_map_data), he_map.meta
+        )
+        
+        # Threshold pre-processed map with varied lower bounds
+        thresh_bound_list = [
+            get_thresh_bound(pre_processed_map_data, percent_of_peak)
+            for percent_of_peak in percent_of_peak_list
+        ]
+        thresh_maps = [
+            np.where(pre_processed_map_data >= thresh_bound, 
+                     pre_processed_map_data, 0)
+            for thresh_bound in thresh_bound_list
+        ]
+        
+        # Lists of outcomes of CH detected at given or greater
+        # confidence levels
+        num_ch_by_thresh_list.append(
+            get_num_ch_list(thresh_maps)
+        )
+        area_tuple_by_thresh_list = [
+            get_area_percent(pre_processed_map, thresh_bound)
+            for thresh_bound in thresh_bound_list
+        ]
+        area_percent_by_thresh_list.append(
+            [area_tuple[0] for area_tuple in area_tuple_by_thresh_list]
+        )
+        area_by_thresh_list.append(
+            [area_tuple[1] for area_tuple in area_tuple_by_thresh_list]
+        )
+        px_percent_by_thresh_list.append(
+            get_px_percent_list(thresh_maps)
+        )
+    
+    # Convert to dataframes
+    datetime_list = [datetime.strptime(he_date_str, DICT_DATE_STR_FORMAT)
+                     for he_date_str in he_date_str_list]
+    num_ch_df = pd.DataFrame(
+        num_ch_by_thresh_list, columns=percent_of_peak_list,
+        index=datetime_list
+    )
+    area_percent_df = pd.DataFrame(
+        area_percent_by_thresh_list, columns=percent_of_peak_list,
+        index=datetime_list
+    )
+    area_df = pd.DataFrame(
+        area_by_thresh_list, columns=percent_of_peak_list,
+        index=datetime_list
+    )
+    px_percent_df = pd.DataFrame(
+        px_percent_by_thresh_list, columns=percent_of_peak_list,
+        index=datetime_list
+    )
+    return num_ch_df, area_percent_df, area_df, px_percent_df
+
+
+def get_outcome_dfs(he_date_str_list, confidence_level_list,
+                    he_dir, ensemble_map_save_dir):
+    """Retrieve dataframes with ensemble map outcomes at specified confidence
+    levels over time.
+    
+    Args
+        he_date_str_list: list of date strings for ensemble maps
+        confidence_level_list: list of float confidence levels at which
+            to threshold ensemble maps for computing outcomes
+        he_dir: path to directory with saved He I observations
+        ensemble_map_save_dir: path to directory with saved ensemble maps
+    Returns
+        Dataframes of outcomes by confidence level over time.
+    """
+    # List for outcomes at varied confidence levels and datetimes
+    num_ch_by_confidences_list = []
+    area_percent_by_confidences_list = []
+    area_by_confidences_list = []
+    px_percent_by_confidences_list = []
+
+    for he_date_str in he_date_str_list:
+        
+        he_file = f'{he_dir}{he_date_str}.fts'
+        he_map = prepare_data.get_solis_sunpy_map(he_file)
+        if not he_map:
+            print(f'{he_date_str} He I observation extraction failed.')
+            continue
+        
+        # Extract saved ensemble map
+        ensemble_file = f'{ensemble_map_save_dir}{he_date_str}_ensemble_map.npy'
+        ensemble_map_data = np.load(ensemble_file, allow_pickle=True)[-1]
+        ensemble_map = sunpy.map.Map(np.flipud(ensemble_map_data), he_map.meta)
+        
+        confidence_maps = [
+            np.where(ensemble_map_data >= confidence_level, ensemble_map_data, 0)
+            for confidence_level in confidence_level_list
+        ]
+        
+        # Lists of outcomes of CH detected at given or greater
+        # confidence levels
+        num_ch_by_confidences_list.append(
+            get_num_ch_list(confidence_maps)
+        )
+        area_tuple_by_confidence_list = [
+            get_area_percent(ensemble_map, confidence_level)
+            for confidence_level in confidence_level_list
+        ]
+        area_percent_by_confidences_list.append(
+            [area_tuple[0] for area_tuple in area_tuple_by_confidence_list]
+        )
+        area_by_confidences_list.append(
+            [area_tuple[1] for area_tuple in area_tuple_by_confidence_list]
+        )
+        px_percent_by_confidences_list.append(
+            get_px_percent_list(confidence_maps)
+        )
+    
+    # Convert to dataframes
+    datetime_list = [datetime.strptime(he_date_str, DICT_DATE_STR_FORMAT)
+                    for he_date_str in he_date_str_list]
+    num_ch_df = pd.DataFrame(
+        num_ch_by_confidences_list, columns=confidence_level_list,
+        index=datetime_list
+    )
+    area_percent_df = pd.DataFrame(
+        area_percent_by_confidences_list, columns=confidence_level_list,
+        index=datetime_list
+    )
+    area_df = pd.DataFrame(
+        area_by_confidences_list, columns=confidence_level_list,
+        index=datetime_list
+    )
+    px_percent_df = pd.DataFrame(
+        px_percent_by_confidences_list, columns=confidence_level_list,
+        index=datetime_list
+    )
+    return num_ch_df, area_percent_df, area_df, px_percent_df
+
+
+def get_mad_by_confidences(outcome_df, confidence_level_list):
+    """Retrieve an array of median absolute deviation in an outcome
+    for varied confidence levels and a normalized metric by the 
+    time series median.
+    """
+    mad_by_confidences = [
+        np.median(np.abs(outcome_df[cl] - outcome_df[cl].median()))
+        for cl in confidence_level_list
+    ]
+    norm_mad_by_confidences = [
+        mad/outcome_df[cl].median()*100
+        for mad, cl in zip(mad_by_confidences, confidence_level_list)
+    ]
+    return np.array(mad_by_confidences), np.array(norm_mad_by_confidences)
+
+
+# Ensemble Map Functions
 def get_ensemble_v0_2(array, percent_of_peak_list, morph_radius_list):
     """Retrieve an ensemble of segmentations sorted by CH pixel number
     detected.
@@ -625,17 +880,6 @@ def get_smooth_ensemble(array, percent_of_peak_list, morph_radius_list,
             ~np.isnan(isolated_ch_im), confidence, ensemble_map
         )
     return ensemble_map, isolated_ch_ims, confidence_list
-
-
-def get_saved_ensemble_map(save_file):
-    """Load saved ensemble map lists from file.
-    """
-    save_list = np.load(save_file, allow_pickle=True)
-    eqw_date = save_list[0]
-    percent_of_peak_list = save_list[1]
-    morph_radius_list = save_list[2]
-    ensemble_map = save_list[3]
-    return eqw_date, percent_of_peak_list, morph_radius_list, ensemble_map
 
 
 def write_ensemble_video(output_dir, fps):

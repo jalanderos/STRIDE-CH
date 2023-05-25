@@ -442,19 +442,29 @@ def get_solis_sunpy_map(fits_file):
         else:
             data = hdu_list[-1].data[0]
 
-    # Take absolute value of coordinate change per pixel such that
-    # Solar-X is positive
-    header['CDELT1'] = abs(header['CDELT1'])
-
-    # Units must be arcsec for further processing if
-    # Helioprojective Cartesian is the primary World Coordinate System
+    # # Apply absolute value of coordinate change per pixel such that
+    # # Solar-X is positive
+    # header['CDELT1'] = abs(header['CDELT1'])
+    
+    # Helioprojective Cartesian coordinates must have
+    # arcsec units for further processing. Warning messages
+    # will appear but the map will be produced successfully.
     if (header['WCSNAME'] == 'Helioprojective-cartesian'
         and header['CUNIT1'] != 'arcsec'):
         return sunpy.map.Map(data, header)
         
+    # Heliocentric Cartesian coordinates must have zero
+    # centered coordinates
+    if (header['WCSNAME'] == 'Heliocentric-cartesian (approximate)'
+        and (header['CRVAL1'] != 0 or header['CRVAL2'] != 0)):
+        print((f'Failed to convert {fits_file} into a Sunpy map.')
+              + ('Coordinates were Heliocentric but were not ')
+              + ('zero centered.'))
+        return None
+        
     # Specify Earth-based observer for solar radius, distance to Sun,
     # and Heliographic coordinates to avoid warning messages due to
-    # missing keywords.
+    # missing keywords
     earth_hp_coords = frames.Helioprojective(
         header['CRVAL1']*u.arcsec, header['CRVAL2']*u.arcsec,
         observer='earth', obstime=header['DATE-OBS'],
@@ -467,46 +477,42 @@ def get_solis_sunpy_map(fits_file):
     # to Helioprojective Cartesian for Sunpy to create map
     if header['WCSNAME'] == 'Heliocentric-cartesian (approximate)':
         
-        # Units must be solar radii for Heliocentric Cartesian as 
-        # primary World Coordinate System
-        if header['CUNIT1'] != 'solRad':
-            print((f'Failed to convert {fits_file} into a Sunpy map.')
-                + ('Coordinates were Heliocentric but did not use solar ')
-                + ('radii units.'))
-            return None
+        # Cartesian coordinate units
+        coord_u1 = u.Unit(header['CUNIT1'])
+        coord_u2 = u.Unit(header['CUNIT2'])
         
-        header['WCSNAME'] = 'Helioprojective-cartesian'
-        header['CTYPE1'] = 'HPLN-TAN'
-        header['CTYPE2'] = 'HPLT-TAN'
-        header['CUNIT1'] = 'arcsec'
-        header['CUNIT2'] = 'arcsec'
-        
-        # Remove error causing keywords indicate presence of
-        # coordinate transformation
-        header.pop('PC1_1')
-        header.pop('PC2_2')
-        
-        # Z-axis is neglected
-        z = 0*u.m
-        
-        # Center pixel coordinates
+        # Convert center pixel coordinates from distance to angle
         hc_coords = frames.Heliocentric(
-            header['CRVAL1']*u.solRad, header['CRVAL2']*u.solRad, z,
+            header['CRVAL1']*coord_u1,
+            header['CRVAL2']*coord_u2, z=0*u.m,
             observer='earth', obstime=header['DATE-OBS']
         )
         hp_coords = hc_coords.transform_to(earth_hp_coords)
         header['CRVAL1'] = hp_coords.Tx.value
         header['CRVAL2'] = hp_coords.Ty.value
         
-        # Angular change per pixel
+        # Convert change per pixel from distance to angle
         hc_delta_coords = frames.Heliocentric(
-            header['CDELT1']*u.solRad, header['CDELT2']*u.solRad, z,
+            header['CDELT1']*coord_u1,
+            header['CDELT2']*coord_u2, z=0*u.m,
             observer='earth', obstime=header['DATE-OBS']
         )
         hp_delta_coords = hc_delta_coords.transform_to(earth_hp_coords)
         header['CDELT1'] = hp_delta_coords.Tx.value
         header['CDELT2'] = hp_delta_coords.Ty.value
+        
+        # Modify keywords
+        header['WCSNAME'] = 'Helioprojective-cartesian'
+        header['CTYPE1'] = 'HPLN-TAN'
+        header['CTYPE2'] = 'HPLT-TAN'
+        header['CUNIT1'] = 'arcsec'
+        header['CUNIT2'] = 'arcsec'
 
+        # Remove error causing keywords indicate presence of
+        # coordinate transformation
+        header.pop('PC1_1')
+        header.pop('PC2_2')
+        
     return sunpy.map.Map(data, header)
 
 

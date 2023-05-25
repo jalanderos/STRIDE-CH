@@ -3,11 +3,12 @@
 
 import numpy as np
 from scipy import ndimage
+import plotly.express as px
 from skimage import filters
 from astropy.io import fits
 from datetime import datetime
+from matplotlib import colormaps
 from matplotlib import pyplot as plt
-import plotly.express as px
 from sunpy.coordinates.sun import carrington_rotation_number
 
 import run_detection
@@ -178,19 +179,19 @@ def plot_contours(ax, magnetogram, smooth_size_percent):
 
 
 def plot_map_contours(ax, smooth_map):
-   """Add contours of large scale neutral regions from a smoothed
-   Sunpy map to axes 
-   
-   Args
-      ax: 
-      magnetogram: 
-      smooth_size_percent: float to specify uniform smoothing kernel size
-         as a percentage of image size
-   """   
-   # Plot large scale neutral lines
-   contours = smooth_map.contour(0)
-   for contour in contours:
-      ax.plot_coord(contour, color='y')
+    """Add contours of large scale neutral regions from a smoothed
+    Sunpy map to axes 
+    
+    Args
+        ax: 
+        magnetogram: 
+        smooth_size_percent: float to specify uniform smoothing kernel size
+            as a percentage of image size
+    """   
+    # Plot large scale neutral lines
+    contours = smooth_map.contour(0)
+    for contour in contours:
+        ax.plot_coord(contour, color='y')
 
 
 # EUV Plotting
@@ -567,20 +568,95 @@ def plot_ensemble_comparison(eqw, date, ensemble_map, euv):
     ax[2].imshow(euv)
 
 
-def plot_mag_ensemble_comparison(eqw, date, ensemble_map, magnetogram, euv):
-    """Work in progress"""
-    fig, axes = plt.subplots(nrows=1, ncols=4, 
-                             figsize=(40, 10))
-    ax = axes.ravel()
+def plot_thresh_outcome_vs_time(ax, outcome_df, date_str, cmap, ylabel):
+    """Plot outcome stacked plot vs time for thresholded maps.
     
-    ax[0].set_title(date, fontsize=24)
-    ax[0].imshow(eqw, cmap=plt.cm.gray)
+    Args
+        ax: matplotlib axes object to plot on
+        outcome_df: Pandas dataframe of outcome by confidence level
+            over time
+        date_str: Date string at which to plot a vertical line
+        cmap: Matplotlib colormap name
+        ylabel: string for y axis label
+    """
+    # Array of differences in outcomes between confidence levels
+    diff_df = outcome_df.diff(periods=-1, axis=1)
+    diff_df[diff_df.columns[-1]] = outcome_df[outcome_df.columns[-1]]
+    
+    # Datetime and data array for stack plot
+    datetimes = outcome_df.index
+    stack_plot_array = np.flipud(diff_df.to_numpy().T)
+    
+    # Threshold labels for legend
+    threshold_label_list = [
+        f'{thresh_level}% of Histogram Peak Threshold'
+        for thresh_level in reversed(outcome_df.columns)
+    ]
+    
+    cmap = colormaps[cmap]
+    color_list = cmap(np.linspace(0, 0.75, len(threshold_label_list)))
 
-    ax[1].imshow(ensemble_map, cmap=plt.cm.magma)
+    ax.stackplot(datetimes, stack_plot_array,
+                labels=threshold_label_list, colors=color_list)
     
-    plot_magnetogram(ax[2], magnetogram, smooth_size_percent=9, bound=50)
+    # Vertical line for datetime indicator
+    vline_datetime = datetime.strptime(date_str, DICT_DATE_STR_FORMAT)
+    min_outcome = outcome_df[max(outcome_df.columns)].min()
+    max_outcome = outcome_df[min(outcome_df.columns)].max()
+    ax.vlines(x=[vline_datetime, vline_datetime], ymax=2*max_outcome, ymin=0,
+               colors='k', linestyles='dashed')
     
-    ax[3].imshow(euv)
+    for tick in ax.get_xticklabels():
+        tick.set_rotation(45)
+    ax.set_ylabel(ylabel)
+    ax.set_xlim([datetimes[0], datetimes[-1]])
+    ax.set_ylim([0.9*min_outcome, 1.25*max_outcome])
+    ax.legend(reverse=True)
+
+
+def plot_outcome_vs_time(ax, outcome_df, date_str, cmap, ylabel):
+    """Plot outcome stacked plot vs time for ensemble maps.
+    
+    Args
+        ax: matplotlib axes object to plot on
+        outcome_df: Pandas dataframe of outcome by confidence level
+            over time
+        date_str: Date string at which to plot a vertical line
+        cmap: Matplotlib colormap name
+        ylabel: string for y axis label
+    """
+    # Array of differences in outcomes between confidence levels
+    diff_df = outcome_df.diff(periods=-1, axis=1)
+    diff_df[diff_df.columns[-1]] = outcome_df[outcome_df.columns[-1]]
+    
+    # Datetime and data array for stack plot
+    datetimes = outcome_df.index
+    stack_plot_array = np.flipud(diff_df.to_numpy().T)
+    
+    # Confidence labels for legend
+    confidence_label_list = [
+        f'{confidence_level}% Confidence'
+        for confidence_level in reversed(outcome_df.columns)
+    ]
+    
+    cmap = colormaps[cmap]
+    color_list = cmap(np.linspace(0, 0.75, len(confidence_label_list)))
+
+    ax.stackplot(datetimes, stack_plot_array,
+                labels=confidence_label_list, colors=color_list)
+    
+    # Vertical line for datetime indicator
+    vline_datetime = datetime.strptime(date_str, DICT_DATE_STR_FORMAT)
+    max_outcome = outcome_df[min(outcome_df.columns)].max()
+    ax.vlines(x=[vline_datetime, vline_datetime], ymax=1.2*max_outcome, ymin=0,
+               colors='k', linestyles='dashed')
+    
+    for tick in ax.get_xticklabels():
+        tick.set_rotation(45)
+    ax.set_ylabel(ylabel)
+    ax.set_xlim([datetimes[0], datetimes[-1]])
+    ax.set_ylim([0, 1.1*max_outcome])
+    ax.legend(reverse=True)
 
 
 # UNUSED
