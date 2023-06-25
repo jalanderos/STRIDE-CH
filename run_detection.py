@@ -8,8 +8,8 @@ from scipy import ndimage
 import astropy.units as u
 from datetime import datetime
 from sunpy.coordinates import frames
-from skimage import morphology, filters
 from moviepy.video.io import ImageSequenceClip
+from skimage import morphology, filters, exposure
 
 import prepare_data
 
@@ -92,16 +92,23 @@ def pre_process_eqw_v0_1(raw_eqw, peak_count_cutoff_percent=0.1):
     return eqw_band_cut, eqw_high_cut, eqw_nan
 
 
-def pre_process_eqw_v0_3(raw_eqw):
-    """Pre-process equivalent width array by setting background to NaN
-    and a simple brightness band pass. WIP.
+def pre_process_eqw_v0_4(raw_eqw):
+    """Pre-process equivalent width array by applying linear rescaling
+    to normalize the contrast and setting background to NaN.
+    
+    Args
+        raw_eqw: He I equivalent width Numpy array
+    Returns
+        Pre-processed He I equivalent width Numpy array
     """
-    eqw_nan = np.where(raw_eqw == 0, np.NaN, raw_eqw)
-    
-    eqw_high_cut = np.where(eqw_nan > 100, np.NaN, eqw_nan)
-    eqw_band_cut = np.clip(eqw_high_cut, -100, 100)
-    
-    return eqw_band_cut, eqw_nan
+    # Rescale data to hold only intensities between the 2nd and 98th
+    # percentiles. Produces a less harsh contrast enhancement than
+    # histogram equalization.
+    p2, p98 = np.percentile(raw_eqw[~np.isnan(raw_eqw)], (2, 98))
+    eqw = exposure.rescale_intensity(raw_eqw, in_range=(p2, p98))
+    eqw = np.where(eqw == eqw[0,0], np.NaN, eqw)
+        
+    return eqw
 
 
 # Segmentation Functions
@@ -131,21 +138,23 @@ def get_thresh_bound(array, percent_of_peak):
 
 
 def morph(array, morph_radius):
-    """Perform morphological operations.
+    """Perform morphological operations on a given array with an
+    approximation to a disk structuring element of specified radius.
+    The true elements applied are a sequence decomposition for reduced
+    computational cost.
     
     Args
         array: Numpy array
-        morph_radius: int pixel number for radius of disk structuring element
-            in morphological operations
+        morph_radius: int pixel number for radius of approximated 
+            disk structuring element in morphological operations
     Returns
         Array that has been processed via morphological opening and closing.
     """
-    open_array = morphology.binary_opening(
-        array, morphology.disk(morph_radius)
-    )
-    close_array = morphology.binary_closing(
-        open_array, morphology.disk(morph_radius)
-    )
+    disk = morphology.disk(int(morph_radius), decomposition='sequence')
+    
+    open_array = morphology.binary_opening(array, disk)
+    close_array = morphology.binary_closing(open_array, disk)
+    
     return close_array
 
 
@@ -463,6 +472,8 @@ def get_area_percent(ensemble_map, confidence_level):
         Detected area as a percentage of total solar surface area.
     """
     obstime = ensemble_map.date
+    
+    # B-angle to subtract from latitude
     B0 = ensemble_map.center.observer.lat
     
     # Convert Helioprojective angular change per pixel
@@ -724,9 +735,9 @@ def get_ensemble_v0_2(array, percent_of_peak_list, morph_radius_list):
     confidence_list = [(c + 1)/num_masks *100
                        for c in range(num_masks)]
 
-    # Sort masks by area percentage detected
-    area_percent_list = get_area_percent_list(ch_mask_list)
-    sorted_mask_idxs = np.flip(np.argsort(area_percent_list))
+    # Sort masks by pixel percentage detected
+    px_percent_list = get_px_percent_list(ch_mask_list)
+    sorted_mask_idxs = np.flip(np.argsort(px_percent_list))
     
     ch_masks = ch_masks[sorted_mask_idxs]
 
