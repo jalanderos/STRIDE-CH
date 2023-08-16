@@ -19,10 +19,6 @@ import detect
 # Module variables
 DICT_DATE_STR_FORMAT = '%Y_%m_%d__%H_%M'
 EMPTY_ARRAY = np.zeros((2,2))
-GREEN = '#6ece58'
-BLUE = '#3e4989'
-ORANGE = '#fd9668'
-PURPLE = '#721f81'
 
 
 # General Visualization
@@ -138,75 +134,7 @@ def plot_raw_fits_content(fits_path, header_list,
     return im_list
 
 
-def plot_fits_content(fits_dict, date_str, fits_cmaps):
-    """
-    """
-    fits_tuple = fits_dict[date_str]
-
-    im_list = []
-
-    num_arrays = len(fits_tuple) - 1
-    title_list = fits_tuple[-1]
-
-    for i in range(num_arrays):
-        if i == 0:
-            array = np.clip(fits_tuple[i], -50, 50)
-        else:
-            array = fits_tuple[i]
-        
-        im_list.append(array)        
-        
-    plot_images(im_list, title_list, fits_cmaps)
-
-
 # Magnetogram Plotting
-def plot_magnetogram(ax, magnetogram, smooth_size_percent, bound):
-   """Add magnetogram saturated at bounds and contour map of large scale
-   neutral regions to axes
-   
-   Args
-      ax: matplotlib axes
-      magnetogram: magnetogram image array
-      smooth_size_percent: float to specify uniform smoothing kernel size
-         as a percentage of image size
-      bound: float to clip magnetogram display to (G)
-   """
-   plot_contours(ax, magnetogram, smooth_size_percent)
-
-   # Pre-process magnetogram
-   process_magnetogram = np.where(magnetogram == 0, np.nan, magnetogram)
-   process_magnetogram = np.clip(process_magnetogram, -bound, bound)
-
-   # Plot the photospheric map
-   ax.imshow(process_magnetogram, cmap=plt.cm.gray)
-
-
-def plot_contours(ax, magnetogram, smooth_size_percent):
-    """Add contour map of large scale neutral regions to axes
-    
-    Args
-        ax: matplotlib axes
-        magnetogram: magnetogram image array
-        smooth_size_percent: float to specify uniform smoothing kernel size
-            as a percentage of image size
-        bound: float to clip magnetogram display to (G)
-    """
-    smooth_size = smooth_size_percent/100 *magnetogram.shape[0]
-    smoothed_magnetogram = ndimage.uniform_filter(
-        magnetogram, smooth_size
-    )
-    # Remove background after to avoid empty output 
-    # from removal then smoothing
-    smoothed_magnetogram = np.where(
-        magnetogram == 0, np.nan, smoothed_magnetogram
-    )
-    # Plot large scale neutral lines
-    ax.contour(
-        smoothed_magnetogram, colors='yellow', 
-        levels=[0], linewidths=1.5
-    )
-
-
 def plot_map_contours(ax, smooth_map):
     """Add contours of large scale neutral regions from a smoothed
     Sunpy map to axes 
@@ -221,66 +149,6 @@ def plot_map_contours(ax, smooth_map):
     contours = smooth_map.contour(0)
     for contour in contours:
         ax.plot_coord(contour, color='y')
-
-
-# EUV Plotting
-def plot_euv(ax, euv):
-   """Add calibrated EUV image to axes
-   
-   Args
-      ax: matplotlib axes
-      euv: EUV image array
-   """
-   # Plot the EUV map
-   ax.imshow(euv, cmap=plt.cm.gray)
-
-
-# NSO Plotting
-def plot_ch_map(date_str_list, cr_str, ch_map_dict):
-    """Plot NSO detected CH Carrington map.
-    """
-    # Display selected column number corresponding to date list
-    selected_datetime_list = [
-        datetime.strptime(
-            date_str, DICT_DATE_STR_FORMAT)
-        for date_str in date_str_list
-    ]
-    selected_cr_list = [
-        carrington_rotation_number(selected_datetime)
-        for selected_datetime in selected_datetime_list
-    ]
-    
-    cr_str_list = cr_str.split('_')
-    cr_num_list = [float(cr_str) for cr_str in cr_str_list]
-    
-    cr_range = cr_num_list[-1] - cr_num_list[0]
-    cr_percent_list = [
-        (selected_cr - cr_num_list[0])/cr_range
-        for selected_cr in selected_cr_list
-    ]
-    
-    ch_map = ch_map_dict[cr_str]
-    rows, cols = ch_map.shape
-    
-    selected_col_list = [
-        cols - cr_percent*cols
-        for cr_percent in cr_percent_list
-    ]
-    
-    print('Selected Date Columns:')
-    for date_str, selected_col in zip(
-        date_str_list, selected_col_list):
-        print(f'{date_str}: {selected_col:.1f}px \t', end='')
-
-    # Prepare the figure and axes with map projection
-    fig = plt.figure(figsize=(10, 10))
-
-    ax = fig.add_subplot()
-    ax.set_title(f'CR{cr_str}', fontsize=20)
-    
-    ax.imshow(ch_map, extent=[0,cols, rows, 0])
-    ax.vlines(x=selected_col_list, ymin=rows, ymax=0, linestyles='dashed',
-              colors='black')
 
 
 # Segmentation Parameter Varying Plots
@@ -367,99 +235,13 @@ def plot_thresholds(array, bounds, bounds_as_percent, threshold_type='lower'):
         
         ax[img_i].imshow(edit_im)
         
-        
-def plot_pixel_percent_bars(ax, parameter_list, pixel_percent_list,
-                            max_diff, cutoff, selected_parameter_num,
-                            step, title, unit, xlabel, thresh=True):
-    bar_width = 0.8*step
-    selected_parameters = parameter_list[selected_parameter_num:]
-    
-    ax.set_title(f'{title}\n Cutoff: {selected_parameters[0]}{unit} | ' +
-                 f'Max Difference: {max_diff:.1f}%' , fontsize=28)
-    ax.set_xlabel(xlabel, fontsize=24)
-    
-    ax.set_ylabel('Pixel Percentage (%)', fontsize=24)
-    
-    ax.plot([parameter_list[0] - step/2, parameter_list[-1] + step/2], [cutoff, cutoff], 
-               linestyle='--', color='k', linewidth=3)
-    
-    if thresh:
-        ax.bar(parameter_list, pixel_percent_list, 
-               width=bar_width, color=BLUE)
-        ax.bar(selected_parameters, 
-               pixel_percent_list[selected_parameter_num:], 
-               width=bar_width, color=GREEN)
-    else:
-        ax.bar(parameter_list, pixel_percent_list,
-               width=bar_width, color=PURPLE)
-        ax.bar(selected_parameters,
-               pixel_percent_list[selected_parameter_num:], 
-               width=bar_width, color=ORANGE)
-
-
-# Segmentation Outcome Plots
-def plot_heat_map(outcome_list, title, percent_of_peak_list, morph_radius_list, 
-                  color_scale='Magma'):
-    # Reverse order to facilitate plotting
-    y_axis_list = morph_radius_list.copy()
-    y_axis_list.reverse()
-    
-    outcome_map = np.flipud(np.reshape(
-        outcome_list, (len(percent_of_peak_list),len(morph_radius_list))).T)
-
-    fig = px.imshow(outcome_map, 
-                    labels=dict(x='Threshold Level as Percent of Peak (%)',
-                                y='SE Disk Radius (px)'),
-                    x=percent_of_peak_list, y=y_axis_list,
-                    aspect='auto', color_continuous_scale=color_scale)
-    fig.update_layout(title=title, width=700)
-    fig.show()
-    
-    
-def plot_heat_map_band(outcome_list, heat_map_title, lower_bound, upper_bound,
-                       percent_of_peak_list, morph_radius_list, 
-                       array, all_ch_masks_list, title_list, color_scale='Magma'):
-    edit_outcome_list = outcome_list.copy()
-    
-    # Index list of outcomes within bounds 
-    idx_list = [i for i in range(len(edit_outcome_list)) 
-              if edit_outcome_list[i] >= lower_bound and edit_outcome_list[i] <= upper_bound]
-    num_ch_masks = len(idx_list)
-    
-    if not num_ch_masks:
-        print('No masks in outcome range')
-        return
-    
-    max_outcome = max(edit_outcome_list)
-    # Highlight outcomes within bounds
-    for i in idx_list:
-        edit_outcome_list[i] = 2*max_outcome
-
-    plot_heat_map(edit_outcome_list, heat_map_title,
-                  percent_of_peak_list, morph_radius_list, color_scale)
-    
-    if num_ch_masks == 1:
-        fig = plt.figure(figsize=(6, 6))
-        ax = fig.add_subplot()
-        
-        outcome_idx = idx_list[0]
-        ax.imshow(array, cmap=plt.cm.afmhot)
-        ax.contour(all_ch_masks_list[outcome_idx], linewidths=0.5, cmap=plt.cm.gray)
-        ax.set_title(title_list[outcome_idx], fontsize=18)
-    else:
-        fig, axes = plt.subplots(nrows=1, ncols=num_ch_masks, figsize=(6*num_ch_masks, 6))
-        ax = axes.ravel()
-    
-        for i in range(num_ch_masks):
-            outcome_idx = idx_list[i]
-            ax[i].imshow(array, cmap=plt.cm.afmhot)
-            ax[i].contour(all_ch_masks_list[outcome_idx], linewidths=0.5, cmap=plt.cm.gray)
-            ax[i].set_title(title_list[outcome_idx], fontsize=18)
-
 
 # Ensemble Plotting Functions
 def plot_he_neutral_lines_euv_comparison(fig, he_date_str, mag_date_str,
                                          euv_date_str, nrows=1):
+    """Plot a 3 panel comparison of a saturated He I observation, ensemble map
+    with neutral lines, and an EUV observation.
+    """
     # Extract He I observation
     he_map = prepare_data.get_solis_sunpy_map(ALL_HE_DIR + he_date_str + '.fts')
     if not he_map:
@@ -472,7 +254,7 @@ def plot_he_neutral_lines_euv_comparison(fig, he_date_str, mag_date_str,
     ensemble_map.plot_settings['cmap'] = colormaps['magma']
 
     # Extract saved processed magnetogram
-    reprojected_smooth_file = (f'{REPROJECT_MAG_SAVE_DIR}Mag{mag_date_str}'
+    reprojected_smooth_file = (f'{ROTATED_MAG_SAVE_DIR}Mag{mag_date_str}'
                                + f'_He{he_date_str}_smooth.fits')
     reprojected_smooth_map = sunpy.map.Map(reprojected_smooth_file)
     
@@ -492,49 +274,39 @@ def plot_he_neutral_lines_euv_comparison(fig, he_date_str, mag_date_str,
     euv_map.plot(axes=ax, title=euv_date_str)
 
 
-def plot_ensemble(pre_processed_map, ensemble_map, map_data_by_ch,
-                  confidence_list, metric_list):
+def plot_ensemble(pre_processed_map_data, ensemble_map_data, map_data_by_ch,
+                  confidence_list, metric_list, mask_contour=False):
     """Plot pre-processed map and ensemble map in upper panel. Plot grid
     of individial CH contours on pre-processed map.
     
     Args
-        pre_processed_map: image array of pre-processed map
-        ensemble_map: image array of ensemble coronal hole detection
+        pre_processed_map_data: image array of pre-processed map
+        ensemble_map_data: image array of ensemble coronal hole detection
         map_data_by_ch: list of images with isolated detected CHs
         confidence_list: list of confidence levels in mask layers
         metric_list: list of metrics for sorting mask layers
     """
-    fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(20, 10))
-    ax = axes.ravel()
+    plot_images([pre_processed_map_data, ensemble_map_data],
+                cmaps=['gray', 'magma'])
 
-    ax[0].imshow(pre_processed_map, cmap=plt.cm.gray)
-    ax[1].imshow(ensemble_map, cmap=plt.cm.magma)
-
-    image_list = [pre_processed_map for _ in range(len(map_data_by_ch))]
+    image_list = [pre_processed_map_data for _ in range(len(map_data_by_ch))]
     axes = plot_image_grid(image_list, num_cols=5, cmap='afmhot')
-    ch_contour_list = [np.where(~np.isnan(ch_im), 1, 0)
-                        for ch_im in map_data_by_ch]
+    if mask_contour:
+        ch_contour_list = map_data_by_ch
+    else:
+        ch_contour_list = [np.where(~np.isnan(ch_im), 1, 0)
+                           for ch_im in map_data_by_ch]
 
     zipped_items = zip(axes.values(), confidence_list,
                        metric_list, ch_contour_list)
     for ax, confidence, metric, ch_contour in zipped_items:
         ax.set_title(f'{confidence:.1f}% Confidence | {metric:.2f} Metric')
-        ax.contour(ch_contour, cmap=plt.cm.binary)
+        if mask_contour:
+            ax.contour(ch_contour, cmap=plt.cm.gray)
+        else:
+            ax.contour(ch_contour, cmap=plt.cm.binary)
             
             
-def plot_ensemble_comparison(eqw, date, ensemble_map, euv):
-    fig, axes = plt.subplots(nrows=1, ncols=3, 
-                             figsize=(30, 10))
-    ax = axes.ravel()
-    
-    ax[0].set_title(date, fontsize=24)
-    ax[0].imshow(eqw, cmap=plt.cm.gray)
-
-    ax[1].imshow(ensemble_map, cmap=plt.cm.magma)
-    
-    ax[2].imshow(euv)
-
-
 def plot_thresh_outcome_vs_time(ax, outcome_df, date_str, cmap, ylabel):
     """Plot outcome stacked plot vs time for thresholded maps.
     

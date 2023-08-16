@@ -365,6 +365,9 @@ def get_solis_sunpy_map(fits_file):
         header.pop('PC1_1')
         header.pop('PC2_2')
         
+        # Remove keyword that only applies to integer data
+        header.pop('BLANK')
+        
     return sunpy.map.Map(data, header)
 
 

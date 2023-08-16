@@ -32,8 +32,8 @@ PREPROCESS_DIR = OUTPUT_DIR + 'Preprocess/'
 DETECT_DIR = OUTPUT_DIR + 'Detection/'
 
 # Intermediate FITS maps
-REPROJECT_MAG_SAVE_DIR = MAP_DIR + 'Rotated_Mag/'
-# REPROJECT_MAG_SAVE_DIR = MAP_DIR + 'Heliographic_Mag/'
+ROTATED_MAG_SAVE_DIR = MAP_DIR + 'Rotated_Mag/'
+HELIOGRAPH_MAG_SAVE_DIR = MAP_DIR + 'Heliographic_Mag/'
 
 RATIO_SAVE_DIR = MAP_DIR + 'Ratio/'
 
@@ -59,24 +59,32 @@ PREPROCESS_MAP_SAVE_DIR = PREPROCESS_DIR + 'v0_6/'
 # DETECTION_VERSION_DIR = DETECT_DIR + 'v0_4_Unipolar_Even/'
 # DETECTION_VERSION_DIR = DETECT_DIR + 'v0_4_Unipolar/'
 DETECTION_VERSION_DIR = DETECT_DIR + 'v0_5/'
+# DETECTION_VERSION_DIR = DETECT_DIR + 'v0_5_HG_No_U_Thresh/'
 # DETECTION_VERSION_DIR = DETECT_DIR + 'v0_6/'
 
 # Detection save files
-DETECTION_SAVE_DIR = DETECTION_VERSION_DIR + 'Saved_Map_Files/'
+DETECTION_SAVE_DIR = DETECTION_VERSION_DIR + 'Saved_npy_Files/'
+
+DETECTION_MAP_SAVE_DIR = DETECTION_VERSION_DIR + 'Saved_fits_Files/'
 
 
 # Date Range Options for Detection Data Products -----------------------------
-# GMU period early in Solar Cycle 24
-DATE_RANGE = ('2012_04_01__00_00', '2012_09_01__00_00')
-DATE_DIR = '2012_04_2012_08/'
+# # Rockwell period in declining Solar Cycle 23
+# DATE_RANGE = ('2004_11_01__00_00', '2005_01_01__00_00')
+# DATE_DIR = '2004_11_2004_12/'
 
-# # April of GMU period early in Solar Cycle 24
+# # Sarnoff-GMU period in rising Solar Cycle 24
+# DATE_RANGE = ('2012_04_01__00_00', '2012_09_01__00_00')
+# DATE_DIR = '2012_04_2012_08/'
+
+# # April of GMU period
 # DATE_RANGE = ('2012_04_01__00_00', '2012_05_01__00_00')
 # DATE_DIR = '2012_04/'
 
-# # June of GMU period early in Solar Cycle 24
-# DATE_RANGE = ('2012_06_01__00_00', '2012_07_01__00_00')
-# DATE_DIR = '2012_06/'
+# June of GMU period
+DATE_RANGE = ('2012_06_01__00_00', '2012_07_01__00_00')
+DATE_DIR = '2012_06/'
+
 
 # # Select few dates for analysis
 # DATE_RANGE = None
