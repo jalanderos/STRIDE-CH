@@ -1,13 +1,16 @@
+"""Library of functions to plot relevant observations and STRIDE-CH output.
 """
-"""
+
 import sunpy.map
 import numpy as np
+import astropy.units as u
 from scipy import ndimage
 import plotly.express as px
 from skimage import filters
 from astropy.io import fits
 from datetime import datetime
 from matplotlib import colormaps
+from astropy.coordinates import SkyCoord
 from matplotlib import colormaps, pyplot as plt
 from sunpy.coordinates.sun import carrington_rotation_number
 
@@ -134,7 +137,53 @@ def plot_raw_fits_content(fits_path, header_list,
     return im_list
 
 
-# Magnetogram Plotting
+# Observation Plotting
+def plot_he_map(fig, subplot_spec, he_map, he_date_str):
+    nrows, ncols, idx = subplot_spec
+    ax = fig.add_subplot(nrows, ncols, idx, projection=he_map)
+    
+    he_date = datetime.strptime(he_date_str, DICT_DATE_STR_FORMAT)
+    if he_date.year >= 2010:
+        # Saturate post-2010 Sarnoff imagery at +/- 100mA
+        he_map.plot(axes=ax, vmin=-100, vmax=100)
+    elif he_date.year >= 2004:
+        # Saturate post-2004 Rockwell imagery at +/- 200mA
+        he_map.plot(axes=ax, vmin=-200, vmax=200)
+    else:
+        he_map.plot(axes=ax, vmin=-200, vmax=100)
+        
+    return ax
+
+
+def plot_euv_map(fig, subplot_spec, euv_map, euv_date_str):
+    # Crop EUV map to similar zoom level to other observations 
+    euv_map = euv_map.submap(
+        bottom_left=SkyCoord(
+            Tx=-1050*u.arcsec, Ty=-1050*u.arcsec,
+                 frame=euv_map.coordinate_frame
+        ),
+        top_right=SkyCoord(
+            Tx=1050*u.arcsec, Ty=1050*u.arcsec,
+            frame=euv_map.coordinate_frame
+        )
+    )
+    
+    nrows, ncols, idx = subplot_spec
+    ax = fig.add_subplot(nrows, ncols, idx, projection=euv_map)
+    
+    euv_date = datetime.strptime(euv_date_str, DICT_DATE_STR_FORMAT)
+    if euv_date.year >= 2010: # Do not saturate post-2010 SDO imagery
+        euv_map.plot(axes=ax)
+    else:
+        # Re-orient July 2003 KPVT data
+        if datetime(2003, 7, 8) < euv_date and euv_date < datetime(2003, 8, 1):
+            euv_map = sunpy.map.Map(np.flip(euv_map.data, (0,1)), euv_map.meta)
+        
+        euv_map.plot(axes=ax, clip_interval=(1, 95)*u.percent)
+    
+    return ax
+
+
 def plot_map_contours(ax, smooth_map):
     """Add contours of large scale neutral regions from a smoothed
     Sunpy map to axes 
@@ -237,43 +286,6 @@ def plot_thresholds(array, bounds, bounds_as_percent, threshold_type='lower'):
         
 
 # Ensemble Plotting Functions
-def plot_he_neutral_lines_euv_comparison(fig, he_date_str, mag_date_str,
-                                         euv_date_str, nrows=1):
-    """Plot a 3 panel comparison of a saturated He I observation, ensemble map
-    with neutral lines, and an EUV observation.
-    """
-    # Extract He I observation
-    he_map = prepare_data.get_solis_sunpy_map(ALL_HE_DIR + he_date_str + '.fts')
-    if not he_map:
-        print(f'{he_date_str} He I observation extraction failed.')
-        
-    # Extract saved ensemble map array and convert to Sunpy map
-    ensemble_file = f'{DETECTION_SAVE_DIR}{he_date_str}_ensemble_map.npy'
-    ensemble_map_data = np.load(ensemble_file, allow_pickle=True)[-1]
-    ensemble_map = sunpy.map.Map(np.flipud(ensemble_map_data), he_map.meta)
-    ensemble_map.plot_settings['cmap'] = colormaps['magma']
-
-    # Extract saved processed magnetogram
-    reprojected_smooth_file = (f'{ROTATED_MAG_SAVE_DIR}Mag{mag_date_str}'
-                               + f'_He{he_date_str}_smooth.fits')
-    reprojected_smooth_map = sunpy.map.Map(reprojected_smooth_file)
-    
-    euv_map = sunpy.map.Map(ALL_EUV_DIR + euv_date_str + '.fts')
-    
-    # Plot He observation
-    ax = fig.add_subplot(nrows, 3, 1, projection=he_map)
-    he_map.plot(axes=ax, vmin=-100, vmax=100, title=he_date_str)
-    
-    # Plot ensemble map with overlayed neutral lines
-    ax = fig.add_subplot(nrows, 3, 2, projection=he_map)
-    ensemble_map.plot(axes=ax, title='')
-    plot_map_contours(ax, reprojected_smooth_map)
-    
-    # Plot EUV observation
-    ax = fig.add_subplot(nrows, 3, 3, projection=euv_map)
-    euv_map.plot(axes=ax, title=euv_date_str)
-
-
 def plot_ensemble(pre_processed_map_data, ensemble_map_data, map_data_by_ch,
                   confidence_list, metric_list, mask_contour=False):
     """Plot pre-processed map and ensemble map in upper panel. Plot grid
@@ -305,6 +317,86 @@ def plot_ensemble(pre_processed_map_data, ensemble_map_data, map_data_by_ch,
             ax.contour(ch_contour, cmap=plt.cm.gray)
         else:
             ax.contour(ch_contour, cmap=plt.cm.binary)
+
+
+def plot_he_neutral_lines_euv(fig, he_date_str, mag_date_str,
+                              euv_date_str, nrows=1):
+    """Plot a 3 panel comparison of a saturated He I observation, ensemble map
+    with neutral lines, and an EUV observation.
+    """
+    # Extract He I observation
+    he_map = prepare_data.get_nso_sunpy_map(ALL_HE_DIR + he_date_str + '.fts')
+    if not he_map:
+        print(f'{he_date_str} He I observation extraction failed.')
+        
+    # Extract saved ensemble map array and convert to Sunpy map
+    ensemble_file = f'{DETECTION_SAVE_DIR}{he_date_str}_ensemble_map.npy'
+    ensemble_map_data = np.load(ensemble_file, allow_pickle=True)[-1]
+    ensemble_map = sunpy.map.Map(np.flipud(ensemble_map_data), he_map.meta)
+    ensemble_map.plot_settings['cmap'] = colormaps['magma']
+
+    # Extract saved processed magnetogram
+    reprojected_smooth_file = (f'{ROTATED_MAG_SAVE_DIR}Mag{mag_date_str}'
+                               + f'_He{he_date_str}_smooth.fits')
+    reprojected_smooth_map = sunpy.map.Map(reprojected_smooth_file)
+    
+    # Extract EUV map
+    euv_map = sunpy.map.Map(ALL_EUV_DIR + euv_date_str + '.fts')
+    
+    plot_he_map(fig, (nrows, 3, 1), he_map, he_date_str)
+    
+    # Plot ensemble map with overlayed neutral lines
+    ax = fig.add_subplot(nrows, 3, 2, projection=he_map)
+    ensemble_map.plot(axes=ax, title='')
+    plot_map_contours(ax, reprojected_smooth_map)
+    
+    plot_euv_map(fig, (nrows, 3, 1), euv_map, euv_date_str)
+
+
+def plot_he_neutral_lines_euv_v0_5_1(fig, he_date_str, mag_date_str,
+                                     euv_date_str, nrows=1,
+                                     hg_reproject=False):
+    """Plot a 3 panel comparison of a saturated He I observation, ensemble map
+    with neutral lines, and an EUV observation.
+    """
+    # Extract He I observation
+    he_map = prepare_data.get_nso_sunpy_map(ALL_HE_DIR + he_date_str + '.fts')
+    if not he_map:
+        print(f'{he_date_str} He I observation extraction failed.')
+    
+    # Extract saved ensemble map array and convert to Sunpy map
+    ensemble_file = f'{DETECTION_MAP_SAVE_DIR}{he_date_str}_ensemble_map.fits'
+    ensemble_map = sunpy.map.Map(ensemble_file)
+
+    # Extract saved processed magnetogram
+    if not hg_reproject:
+        reprojected_smooth_file = (f'{ROTATED_MAG_SAVE_DIR}Mag{mag_date_str}'
+                                + f'_He{he_date_str}_smooth.fits')
+    else:
+        reprojected_smooth_file = (f'{HELIOGRAPH_MAG_SAVE_DIR}Mag{mag_date_str}'
+                                + f'_He{he_date_str}_smooth.fits')
+    reprojected_smooth_map = sunpy.map.Map(reprojected_smooth_file)
+    
+    # Extract EUV map
+    euv_map = sunpy.map.Map(ALL_EUV_DIR + euv_date_str + '.fts')
+
+    # Plot He observation
+    if not hg_reproject:
+        ax1_gridspec = (nrows, 3, 1)
+        ax2 = fig.add_subplot(nrows, 3, 2, projection=ensemble_map)
+        ax3_gridspec = (nrows, 3, 3)
+    else:
+        ax1_gridspec = (nrows, 7, (1,2))
+        ax2 = fig.add_subplot(nrows, 7, (3,5), projection=ensemble_map)
+        ax3_gridspec = (nrows, 7, (6,7))
+    
+    plot_he_map(fig, ax1_gridspec, he_map, he_date_str)
+    
+    # Plot ensemble map with overlayed neutral lines
+    ensemble_map.plot(axes=ax2, title='', cmap='magma')
+    plot_map_contours(ax2, reprojected_smooth_map)
+    
+    plot_euv_map(fig, ax3_gridspec, euv_map, euv_date_str)
             
             
 def plot_thresh_outcome_vs_time(ax, outcome_df, date_str, cmap, ylabel):
@@ -353,7 +445,40 @@ def plot_thresh_outcome_vs_time(ax, outcome_df, date_str, cmap, ylabel):
     ax.legend(reverse=True)
 
 
-def plot_outcome_vs_time(ax, outcome_df, date_str, cmap, ylabel):
+def plot_outcome_series_vs_time(ax, outcome_series, date_str, cmap,
+                                ylabel, ylim=None):
+    """Plot outcome stacked plot vs time for ensemble maps.
+    
+    Args
+        ax: matplotlib axes object to plot on
+        outcome_series: Pandas dataframe of outcome by confidence level
+            over time
+        date_str: Date string at which to plot a vertical line
+        cmap: Matplotlib colormap name
+        ylabel: string for y axis label
+        ylim: optional list of y axis limits
+    """
+    datetimes = outcome_series.index
+    ax.fill_between(datetimes, outcome_series, 0, color=colormaps[cmap](0.75))
+    
+    # Vertical line for datetime indicator
+    vline_datetime = datetime.strptime(date_str, DICT_DATE_STR_FORMAT)
+    max_outcome = outcome_series.max()
+    ax.vlines(x=[vline_datetime, vline_datetime], ymax=1.2*max_outcome, ymin=0,
+              colors='k', linestyles='dashed')
+    
+    for tick in ax.get_xticklabels():
+        tick.set_rotation(45)
+    ax.set_ylabel(ylabel)
+    ax.set_xlim([datetimes[0], datetimes[-1]])
+    if not ylim:
+        ax.set_ylim([0, 1.1*max_outcome])
+    else:
+        ax.set_ylim(ylim)
+
+
+def plot_outcome_df_vs_time(ax, outcome_df, date_str, cmap,
+                            ylabel, ylim=None):
     """Plot outcome stacked plot vs time for ensemble maps.
     
     Args
@@ -363,6 +488,7 @@ def plot_outcome_vs_time(ax, outcome_df, date_str, cmap, ylabel):
         date_str: Date string at which to plot a vertical line
         cmap: Matplotlib colormap name
         ylabel: string for y axis label
+        ylim: optional list of y axis limits
     """
     # Array of differences in outcomes between confidence levels
     diff_df = outcome_df.diff(periods=-1, axis=1)
@@ -394,6 +520,8 @@ def plot_outcome_vs_time(ax, outcome_df, date_str, cmap, ylabel):
         tick.set_rotation(45)
     ax.set_ylabel(ylabel)
     ax.set_xlim([datetimes[0], datetimes[-1]])
-    ax.set_ylim([0, 1.1*max_outcome])
+    if not ylim:
+        ax.set_ylim([0, 1.1*max_outcome])
+    else:
+        ax.set_ylim(ylim)
     ax.legend(reverse=True)
-

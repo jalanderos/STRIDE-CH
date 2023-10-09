@@ -1,4 +1,3 @@
-
 """Library of functions to detect coronal holes.
 """
 
@@ -23,6 +22,10 @@ HE_OBS_DATE_STR_FORMAT = '%Y-%m-%dT%H:%M:%S'
 SOLAR_AREA = 4*np.pi* (1*u.solRad).to(u.Mm)**2
 MIN_PX_SIZE = 5000
 MIN_SIZE = 3E9*u.km**2
+OUTCOME_KEY_LIST = [
+    'area', 'cm_lat', 'cm_lon', 'unsigned_flux', 'signed_flux',
+    'mag_skew', 'unipolarity', 'grad_median'
+]
 
 # Reprojection map shape scaling factors
 # Aim to match Helioprojective scale within 0.01 tolerance
@@ -270,7 +273,7 @@ def remove_background(array):
     return np.where(array == background_val, np.nan, array)
 
 
-def pre_process_vX(he_map):
+def pre_process_v0_5_1(he_map):
     """Pre-process equivalent width array by applying linear rescaling
     to normalize the contrast and setting background to NaN. Produces a
     less harsh contrast enhancement than histogram equalization.
@@ -462,8 +465,8 @@ def get_ch_mask(array, percent_of_peak, morph_radius, min_size=MIN_PX_SIZE):
     return ch_mask
 
 
-def get_ch_mask_list_vX(pre_processed_map, percent_of_peak_list,
-                        morph_radius_dist_list):
+def get_ch_mask_list_v0_5_1(pre_processed_map, percent_of_peak_list,
+                            morph_radius_dist_list):
     """Retrieve a list of segmentations from a pre-processed Sunpy map.
     
     Args
@@ -744,10 +747,10 @@ def get_ensemble_v0_5(pre_processed_map, reprojected_mag_map,
         distinct_ch_map = sunpy.map.Map(
             distinct_ch_mask, pre_processed_map.meta
         )
-        outcomes = get_outcomes(
+        outcome_dict = get_outcomes(
             distinct_ch_map, reprojected_mag_map, A_per_square_px
         )
-        unipolarity_by_ch.append(outcomes[6])
+        unipolarity_by_ch.append(outcome_dict['unipolarity'])
     
     # Sort unipolarities from greatest to least
     sorted_idxs = np.argsort(unipolarity_by_ch)
@@ -765,8 +768,9 @@ def get_ensemble_v0_5(pre_processed_map, reprojected_mag_map,
 
     # Construct ensemble map by adding distinct CHs with assigned
     # confidence level values to an empty base disk    
-    ensemble_map_data = np.where(~np.isnan(pre_processed_map_data),
-                                 0, np.nan)
+    ensemble_map_data = np.where(
+        ~np.isnan(pre_processed_map_data), 0, np.nan
+    )
     for distinct_ch, confidence in zip(masks_by_ch, confidence_levels):
         ensemble_map_data = np.where(
             ~np.isnan(distinct_ch), confidence, ensemble_map_data
@@ -774,9 +778,9 @@ def get_ensemble_v0_5(pre_processed_map, reprojected_mag_map,
     return ensemble_map_data, masks_by_ch, confidence_levels, unipolarity_by_ch
 
 
-def get_ensemble_vX(pre_processed_map, reprojected_mag_map,
-                    percent_of_peak_list, morph_radius_dist_list,
-                    unipolarity_threshold):
+def get_ensemble_v0_5_1(pre_processed_map, reprojected_mag_map,
+                        percent_of_peak_list, morph_radius_dist_list,
+                        unipolarity_threshold):
     """Retrieve an ensemble of segmentations sorted by CH unipolarity.
     
     Args
@@ -795,15 +799,17 @@ def get_ensemble_vX(pre_processed_map, reprojected_mag_map,
         List of confidence levels in mask layers.
         Confidence assignment metric list of unipolarity.
     """
+    pre_processed_map_data = np.flipud(pre_processed_map.data)
+    
     # Create global segmentations for varied design variable combinations
-    ch_mask_list = get_ch_mask_list_vX(
+    ch_mask_list = get_ch_mask_list_v0_5_1(
         pre_processed_map, percent_of_peak_list, morph_radius_dist_list
     )
     
     # List to be extended by masks for distinct CHs from all segmentations
     masks_by_ch = []
     
-    ones_array = np.ones_like(pre_processed_map.data)
+    ones_array = np.ones_like(pre_processed_map_data)
     
     for ch_mask in ch_mask_list:
         masks_by_ch.extend(
@@ -825,10 +831,10 @@ def get_ensemble_vX(pre_processed_map, reprojected_mag_map,
         distinct_ch_map = sunpy.map.Map(
             distinct_ch_mask, pre_processed_map.meta
         )
-        outcomes = get_outcomes(
+        outcome_dict = get_outcomes(
             distinct_ch_map, reprojected_mag_map, A_per_square_px
         )
-        unipolarity_by_ch.append(outcomes[6])
+        unipolarity_by_ch.append(outcome_dict['unipolarity'])
     
     # Sort unipolarities from greatest to least
     sorted_idxs = np.argsort(unipolarity_by_ch)
@@ -848,7 +854,7 @@ def get_ensemble_vX(pre_processed_map, reprojected_mag_map,
     # Construct ensemble map by adding distinct CHs with assigned
     # confidence level values to an empty base disk    
     ensemble_map_data = np.where(
-        ~np.isnan(np.flipud(pre_processed_map.data)), 0, np.nan
+        ~np.isnan(pre_processed_map_data), 0, np.nan
     )
     for distinct_ch, confidence in zip(masks_by_ch, confidence_levels):
         ensemble_map_data = np.where(
@@ -878,6 +884,8 @@ def get_ensemble_vY(pre_processed_map, reprojected_mag_map,
         List of confidence levels in mask layers.
         Confidence assignment metric list of unipolarity.
     """
+    pre_processed_map_data = np.flipud(pre_processed_map.data)
+    
     # Create global segmentations for varied design variable combinations
     ch_mask_list = get_ch_mask_list_vY(
         pre_processed_map, percent_of_peak_list, morph_radius_dist_list
@@ -886,7 +894,7 @@ def get_ensemble_vY(pre_processed_map, reprojected_mag_map,
     # List to be extended by masks for distinct CHs from all segmentations
     masks_by_ch = []
     
-    ones_array = np.ones_like(pre_processed_map.data)
+    ones_array = np.ones_like(pre_processed_map_data)
     
     for ch_mask in ch_mask_list:
         masks_by_ch.extend(
@@ -908,10 +916,10 @@ def get_ensemble_vY(pre_processed_map, reprojected_mag_map,
         distinct_ch_map = sunpy.map.Map(
             distinct_ch_mask, pre_processed_map.meta
         )
-        outcomes = get_outcomes(
+        outcome_dict = get_outcomes(
             distinct_ch_map, reprojected_mag_map, A_per_square_px
         )
-        unipolarity_by_ch.append(outcomes[6])
+        unipolarity_by_ch.append(outcome_dict['unipolarity'])
     
     # Sort unipolarities from greatest to least
     sorted_idxs = np.argsort(unipolarity_by_ch)
@@ -931,7 +939,7 @@ def get_ensemble_vY(pre_processed_map, reprojected_mag_map,
     # Construct ensemble map by adding distinct CHs with assigned
     # confidence level values to an empty base disk    
     ensemble_map_data = np.where(
-        ~np.isnan(np.flipud(pre_processed_map.data)), 0, np.nan
+        ~np.isnan(pre_processed_map_data), 0, np.nan
     )
     for distinct_ch, confidence in zip(masks_by_ch, confidence_levels):
         ensemble_map_data = np.where(
@@ -1083,8 +1091,10 @@ def get_pixel_B_LOS(ensemble_map, reprojected_mag_map, confidence_level,
     
     # Magnetic field strength per detected pixel
     # Flip upside down to align Sunpy coordinates and Numpy indices
-    detected_idxs = np.where(np.flipud(ensemble_map.data) >= confidence_level)
-    pixel_B_LOS = reprojected_mag_map.data[detected_idxs]*u.G
+    detected_px_coords = np.where(
+        np.flipud(ensemble_map.data) >= confidence_level
+    )
+    pixel_B_LOS = reprojected_mag_map.data[detected_px_coords]*u.G
     
     # Remove pixels with failed coordinate conversion
     pixel_B_LOS = np.delete(pixel_B_LOS, failed_coord_idxs)
@@ -1098,7 +1108,7 @@ def get_pixel_B_LOS(ensemble_map, reprojected_mag_map, confidence_level,
 
 # Outcome Collection Functions
 def get_outcomes(ensemble_map, reprojected_mag_map, A_per_square_px,
-                 confidence_level=0):
+                 confidence_level=0, he_map_data=[]):
     """Retrieve outcomes in an ensemble map at a given confidence level.
     
     Outcomes include detected open area in Mm^2, center of mass latitude
@@ -1113,10 +1123,15 @@ def get_outcomes(ensemble_map, reprojected_mag_map, A_per_square_px,
         A_per_square_px: astropy quantity of square area per pixel
         confidence_level: confidence level at which to threshold
             ensemble maps for computing area
+        he_map_data: Numpy array of He I observation. Specify as []
+            to avoid computing the smoothness metric
     Returns
-        Open area, center of mass latitude and longitude, unsigned, signed
-            open flux, flux skewnwss, unipolarity, and flux per pixel.
+        Dictionary with open area, center of mass latitude and longitude,
+            unsigned, signed open flux, flux skewnwss, unipolarity,
+            and flux per pixel.
     """
+    outcome_dict = {}
+    
     # Global variation outcomes ----------------------------------------------
     detected_hg_coords, failed_coord_idxs = get_detected_hg_coords(
         ensemble_map, confidence_level
@@ -1126,13 +1141,15 @@ def get_outcomes(ensemble_map, reprojected_mag_map, A_per_square_px,
     )
     
     # Sum area detected in all pixels
-    open_area = np.sum(pixel_areas).value
+    outcome_dict['area'] = np.sum(pixel_areas).value
     
     # Center of mass
-    cm_lat = (np.sum(detected_hg_coords.lat*pixel_areas)
-              /np.sum(pixel_areas)).value
-    cm_lon = (np.sum(detected_hg_coords.lon*pixel_areas)
-              /np.sum(pixel_areas)).value
+    outcome_dict['cm_lat'] = (
+        np.sum(detected_hg_coords.lat*pixel_areas)/np.sum(pixel_areas)
+    ).value
+    outcome_dict['cm_lon'] = (
+        np.sum(detected_hg_coords.lon*pixel_areas)/np.sum(pixel_areas)
+    ).value
     
     # Magnetic outcomes ------------------------------------------------------
     pixel_B_LOS, failed_mag_idxs = get_pixel_B_LOS(
@@ -1143,12 +1160,13 @@ def get_outcomes(ensemble_map, reprojected_mag_map, A_per_square_px,
     
     # Global unsigned quantities
     pixel_unsigned_fluxes = (np.abs(pixel_B_LOS)*pixel_areas_for_mag).to(u.Wb)
-    unsigned_open_flux = np.sum(pixel_unsigned_fluxes).value
+    outcome_dict['unsigned_flux'] = np.sum(pixel_unsigned_fluxes).value
     
     # Per CH signed quantities
     pixel_signed_fluxes = (pixel_B_LOS*pixel_areas_for_mag).to(u.Mx).value
-    signed_open_flux = np.sum(pixel_signed_fluxes)
-    mag_skew = stats.skew((pixel_signed_fluxes))
+    outcome_dict['pixel_signed_fluxes'] = pixel_signed_fluxes
+    outcome_dict['signed_flux'] = np.sum(pixel_signed_fluxes)
+    outcome_dict['mag_skew'] = stats.skew((pixel_signed_fluxes))
     
     # Unipolarity ------------------------------------------------------------
     foreshort_factors = get_hp_map_foreshort_factors(
@@ -1159,10 +1177,83 @@ def get_outcomes(ensemble_map, reprojected_mag_map, A_per_square_px,
     pixel_B_r = pixel_B_LOS/foreshort_factors
     signed_B_r = np.abs(np.nanmean(pixel_B_r))
     unsigned_B_r = np.nanmean(np.abs(pixel_B_r))
-    unipolarity = (signed_B_r/unsigned_B_r).value
+    outcome_dict['unipolarity'] = (signed_B_r/unsigned_B_r).value
     
-    return open_area, cm_lat, cm_lon, unsigned_open_flux, signed_open_flux, \
-        mag_skew, unipolarity, pixel_signed_fluxes
+    # Smoothness -------------------------------------------------------------
+    if np.any(he_map_data):
+        # Detected He I array masked at a confidence level
+        detected_he_map_data = np.where(
+            ensemble_map.data >= confidence_level, he_map_data, np.nan
+        )
+        
+        # Compute median of spatial gradient on pre-processed He I
+        detected_gradient_data = filters.sobel(detected_he_map_data)
+        outcome_dict['grad_median'] = np.nanmedian(detected_gradient_data)
+    else:
+        outcome_dict['grad_median'] = np.nan
+    
+    return outcome_dict
+
+
+def get_outcomes_by_ch(ensemble_map, he_map_data,
+                       reprojected_mag_map, confidence_level):
+    """Retrieve outcomes per CH in an ensemble map at a given confidence
+    level.
+    
+    See get_outcomes for retrieved outcomes.
+    
+    Args
+        ensemble_map: Sunpy map object of ensemble detection map
+        he_map_data: Numpy array of He I observation
+        reprojected_mag_map: Sunpy map object of magnetogram reprojected
+            to align with the ensemble map
+        confidence_level: confidence level at which to threshold
+            ensemble maps for computing area
+    Returns
+        Lists of outcomes per CH.
+    """
+    if confidence_level <= 0:
+        confidence_level = 1e-3
+        
+    # Compute constant area per square pixel once for all CHs
+    A_per_square_px = get_A_per_square_px(ensemble_map)        
+
+    # Mask of detected CHs at the given confidence level
+    confidence_ch_mask = np.where(
+        ensemble_map.data >= confidence_level, 1, 0
+    )
+
+    # List of ensemble map data for distinct CHs
+    ensemble_map_data_by_ch = get_map_data_by_ch(
+        ensemble_map.data, confidence_ch_mask
+    )
+
+    num_ch = len(ensemble_map_data_by_ch)
+    
+    outcome_by_ch_dict = {}
+    for outcome_key in OUTCOME_KEY_LIST:
+        outcome_by_ch_dict[outcome_key] = np.zeros(num_ch)
+    
+    outcome_by_ch_dict['pixel_signed_fluxes'] = []
+
+    for ch_label in range(num_ch):
+        
+        distinct_ch_ensemble_map = sunpy.map.Map(
+            np.flipud(ensemble_map_data_by_ch[ch_label]), ensemble_map.meta
+        )
+        outcome_dict = get_outcomes(
+            distinct_ch_ensemble_map, reprojected_mag_map, A_per_square_px,
+            confidence_level, he_map_data
+        )
+        for outcome_key in OUTCOME_KEY_LIST:
+            outcome = outcome_dict[outcome_key]
+            outcome_by_ch_dict[outcome_key][ch_label] = outcome
+        
+        outcome_by_ch_dict['pixel_signed_fluxes'].append(
+            outcome_dict['pixel_signed_fluxes']
+        )
+        
+    return outcome_by_ch_dict
 
 
 def get_thresh_outcome_time_series_dfs(he_date_str_list, percent_of_peak_list):
@@ -1185,7 +1276,7 @@ def get_thresh_outcome_time_series_dfs(he_date_str_list, percent_of_peak_list):
     for he_date_str in he_date_str_list:
         
         he_file = f'{ALL_HE_DIR}{he_date_str}.fts'
-        he_map = prepare_data.get_solis_sunpy_map(he_file)
+        he_map = prepare_data.get_nso_sunpy_map(he_file)
         if not he_map:
             print(f'{he_date_str} He I observation extraction failed.')
             continue
@@ -1250,18 +1341,67 @@ def get_thresh_outcome_time_series_dfs(he_date_str_list, percent_of_peak_list):
     return num_ch_df, area_percent_df, area_df, px_percent_df
 
 
-def get_outcome_time_series_dfs(he_date_str_list, confidence_level_list,
-                                ensemble_maps_save_dir):
-    """Retrieve dataframes with ensemble map outcomes at specified confidence
-    levels over time.
+def get_outcome_time_series_dict_v0_1(he_date_str_list, detection_save_dir):
+    """Retrieve a dictionary of series with single mask outcomes over time.
+    
+    Args
+        he_date_str_list: list of date strings for ensemble maps
+        detection_save_dir: path to saved ensemble maps
+    Returns
+        Dictionary of Series of outcomes by confidence level over time.
+    """
+    # List for outcomes at varied confidence levels and datetimes
+    num_ch_list = []
+    area_percent_list = []
+    area_list = []
+    px_percent_list = []
+
+    for he_date_str in he_date_str_list:
+        
+        he_fits_file = prepare_data.get_fits_path(
+            he_date_str, DATE_RANGE, ALL_HE_DIR, SELECT_HE_DIR
+        )
+        he_map = prepare_data.get_nso_sunpy_map(he_fits_file)
+        if not he_map:
+            print(f'{he_date_str} He I observation extraction failed.')
+            continue
+        
+        # Extract saved single mask
+        mask_file = f'{detection_save_dir}{he_date_str}_ensemble_map.npy'
+        mask_data = np.load(mask_file, allow_pickle=True)[-1]
+        mask_map = sunpy.map.Map(np.flipud(mask_data), he_map.meta)
+        
+        # Lists of CH outcomes
+        num_ch_list.append(get_num_ch(mask_data))
+        area_tuple = get_open_area(mask_map, confidence_level=0)
+        area_percent_list.append(area_tuple[0])
+        area_list.append(area_tuple[1])
+        px_percent_list.append(get_px_percent_list([mask_data])[0])
+    
+    # Convert to Series
+    datetime_list = [datetime.strptime(he_date_str, DICT_DATE_STR_FORMAT)
+                    for he_date_str in he_date_str_list]
+    outcome_time_series_dict = {
+        'num_ch': pd.Series(num_ch_list, index=datetime_list),
+        'area_percent': pd.Series(area_percent_list, index=datetime_list),
+        'area': pd.Series(area_list, index=datetime_list),
+        'px_percent': pd.Series(px_percent_list, index=datetime_list)
+    }
+    return outcome_time_series_dict
+
+
+def get_outcome_time_series_dict(he_date_str_list, confidence_level_list,
+                                 detection_save_dir):
+    """Retrieve a dictionary of dataframes with ensemble map outcomes
+    at specified confidence levels over time.
     
     Args
         he_date_str_list: list of date strings for ensemble maps
         confidence_level_list: list of float confidence levels at which
             to threshold ensemble maps for computing outcomes
-        ensemble_maps_save_dir: path to saved ensemble map arrays
+        detection_save_dir: path to saved ensemble maps
     Returns
-        Dataframes of outcomes by confidence level over time.
+        Dictionary of dataframes of outcomes by confidence level over time.
     """
     # List for outcomes over time series
     # Will hold lists of outcomes by confidence level
@@ -1273,13 +1413,13 @@ def get_outcome_time_series_dfs(he_date_str_list, confidence_level_list,
     for he_date_str in he_date_str_list:
         
         he_file = f'{ALL_HE_DIR}{he_date_str}.fts'
-        he_map = prepare_data.get_solis_sunpy_map(he_file)
+        he_map = prepare_data.get_nso_sunpy_map(he_file)
         if not he_map:
             print(f'{he_date_str} He I observation extraction failed.')
             continue
         
         # Extract saved ensemble map
-        ensemble_file = f'{ensemble_maps_save_dir}{he_date_str}_ensemble_map.npy'
+        ensemble_file = f'{detection_save_dir}{he_date_str}_ensemble_map.npy'
         ensemble_map_data = np.load(ensemble_file, allow_pickle=True)[-1]
         ensemble_map = sunpy.map.Map(np.flipud(ensemble_map_data), he_map.meta)
         
@@ -1311,23 +1451,103 @@ def get_outcome_time_series_dfs(he_date_str_list, confidence_level_list,
     # Convert to dataframes
     datetime_list = [datetime.strptime(he_date_str, DICT_DATE_STR_FORMAT)
                     for he_date_str in he_date_str_list]
-    num_ch_df = pd.DataFrame(
-        num_ch_time_series, columns=confidence_level_list,
-        index=datetime_list
-    )
-    area_percent_df = pd.DataFrame(
-        area_percent_time_series, columns=confidence_level_list,
-        index=datetime_list
-    )
-    area_df = pd.DataFrame(
-        area_time_series, columns=confidence_level_list,
-        index=datetime_list
-    )
-    px_percent_df = pd.DataFrame(
-        px_percent_time_series, columns=confidence_level_list,
-        index=datetime_list
-    )
-    return num_ch_df, area_percent_df, area_df, px_percent_df
+    
+    outcome_time_series_dict = {
+        'num_ch': pd.DataFrame(
+            num_ch_time_series, columns=confidence_level_list,
+            index=datetime_list
+            ),
+        'area_percent': pd.DataFrame(
+            area_percent_time_series, columns=confidence_level_list,
+            index=datetime_list
+            ),
+        'area': pd.DataFrame(
+            area_time_series, columns=confidence_level_list,
+            index=datetime_list
+            ),
+        'px_percent': pd.DataFrame(
+            px_percent_time_series, columns=confidence_level_list,
+            index=datetime_list
+            ),
+    }
+    return outcome_time_series_dict
+
+
+def get_outcome_time_series_dict_v0_5_1(he_date_str_list, confidence_level_list,
+                                         detection_save_dir):
+    """Retrieve a dictionary of dataframes with ensemble map outcomes
+    at specified confidence levels over time.
+    
+    Args
+        he_date_str_list: list of date strings for ensemble maps
+        confidence_level_list: list of float confidence levels at which
+            to threshold ensemble maps for computing outcomes
+         detection_save_dir: path to saved ensemble maps
+    Returns
+        Dictionary of dataframes of outcomes by confidence level over time.
+    """
+    # List for outcomes over time series
+    # Will hold lists of outcomes by confidence level
+    num_ch_time_series = []
+    area_percent_time_series = []
+    area_time_series = []
+    px_percent_time_series = []
+
+    for he_date_str in he_date_str_list:
+        
+        # Extract saved ensemble map array and convert to Sunpy map
+        ensemble_file = f'{detection_save_dir}{he_date_str}_ensemble_map.fits'
+        ensemble_map = sunpy.map.Map(ensemble_file)
+        ensemble_map_data = np.flipud(ensemble_map.data)
+        
+        confidence_masks = [
+            np.where(ensemble_map_data >= confidence_level, 1, 0)
+            for confidence_level in confidence_level_list
+        ]
+        
+        # Lists of outcomes of CH detected at given or greater
+        # confidence levels
+        num_ch_time_series.append(
+            [get_num_ch(confidence_mask)
+             for confidence_mask in confidence_masks]
+        )
+        area_tuple_by_confidence_list = [
+            get_open_area(ensemble_map, confidence_level)
+            for confidence_level in confidence_level_list
+        ]
+        area_percent_time_series.append(
+            [area_tuple[0] for area_tuple in area_tuple_by_confidence_list]
+        )
+        area_time_series.append(
+            [area_tuple[1] for area_tuple in area_tuple_by_confidence_list]
+        )
+        px_percent_time_series.append(
+            get_px_percent_list(confidence_masks)
+        )
+    
+    # Convert to dataframes
+    datetime_list = [datetime.strptime(he_date_str, DICT_DATE_STR_FORMAT)
+                     for he_date_str in he_date_str_list]
+
+    outcome_time_series_dict = {
+        'num_ch': pd.DataFrame(
+            num_ch_time_series, columns=confidence_level_list,
+            index=datetime_list
+            ),
+        'area_percent': pd.DataFrame(
+            area_percent_time_series, columns=confidence_level_list,
+            index=datetime_list
+            ),
+        'area': pd.DataFrame(
+            area_time_series, columns=confidence_level_list,
+            index=datetime_list
+            ),
+        'px_percent': pd.DataFrame(
+            px_percent_time_series, columns=confidence_level_list,
+            index=datetime_list
+            ),
+    }
+    return outcome_time_series_dict
 
 
 def get_mad_by_confidences(outcome_df, confidence_level_list):

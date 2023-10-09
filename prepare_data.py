@@ -1,4 +1,4 @@
-"""
+"""Library of functions to prepare observations for coronal hole detection.
 """
 
 import os
@@ -24,6 +24,7 @@ from sunpy.coordinates.sun import carrington_rotation_number
 DICT_DATE_STR_FORMAT = '%Y_%m_%d__%H_%M'
 HE_OBS_DATE_STR_FORMAT = '%Y-%m-%dT%H:%M:%S'
 NUM_DISPLAY_DATES = 4
+EARTH_COORD_KEYS = ['RSUN_REF', 'DSUN_OBS', 'HGLN_OBS', 'HGLT_OBS']
 
 
 # Extraction Functions
@@ -45,13 +46,15 @@ def get_image_from_fits(fits_file):
     return image
 
 
-def download_euv(download_date_list, euv_date_list, output_dir, hr_window):
+def download_euv(download_date_list, euv_date_list, sat,
+                 output_dir, hr_window):
     """Download an EUV FITS file for each datetime in download list in
     a surrounding hour window.
     
     Args
         download_date_list: list of date strings for desired EUV dates
         euv_date_list: list of available EUV data date strings
+        sat: satellite name between 'SDO' or 'SOHO'. Defaults to 'SDO'.
         output_dir: path to directory to download data to
         hr_window: int for number of hours around desired download dates
             to search in
@@ -59,6 +62,7 @@ def download_euv(download_date_list, euv_date_list, output_dir, hr_window):
     dates_to_download = []
     fetch_results = []
     downloaded_dates = []
+    failed_dates = []
 
     for date_str in download_date_list:
         center_date = datetime.strptime(date_str, DICT_DATE_STR_FORMAT)
@@ -76,18 +80,29 @@ def download_euv(download_date_list, euv_date_list, output_dir, hr_window):
                 euv_date_str, DICT_DATE_STR_FORMAT
             )
             
-            euv_available_for_eqw = ((min_date <= euv_datetime)
+            euv_available_for_he = ((min_date <= euv_datetime)
                                     and (euv_datetime <= max_date))
-            if euv_available_for_eqw:
+            if euv_available_for_he:
                 continue
         
         dates_to_download.append(date_str)
         
-        result = Fido.search(
-            a.Time(min_date, max_date),
-            a.Instrument.aia, a.Wavelength(193*u.angstrom),
-            a.Sample(30*u.minute), 
-        )
+        time_range = a.Time(min_date, max_date)
+        cadence = a.Sample(30*u.minute)
+        
+        if sat == 'SOHO':
+            result = Fido.search(
+                time_range,
+                a.Instrument.eit, a.Wavelength(195*u.angstrom),
+                cadence
+            )
+        else: # sat == SDO
+            result = Fido.search(
+                time_range,
+                a.Instrument.aia, a.Wavelength(193*u.angstrom),
+                cadence
+            )
+        
         center_result = result[:, len(result)//2]
         fetch_results.append(center_result)
         
@@ -108,12 +123,19 @@ def download_euv(download_date_list, euv_date_list, output_dir, hr_window):
         if downloaded_files.errors:
             print(f'Error downloading EUV for {date}. '
                   + 'Please reattempt.')
+            failed_dates.append(date)
+        elif not downloaded_files:
+            print(f'{date} not found.')
+            failed_dates.append(date)
         else:
             downloaded_dates.append(date)
 
     if downloaded_dates:
         print('Downloaded EUV Observation Datetimes:')
         display_dates(downloaded_dates)
+        
+        print('Failed EUV Observation Datetimes:')
+        display_dates(failed_dates)
     else:
         print('No EUV files were downloaded.')
 
@@ -187,6 +209,9 @@ def get_fits_path(date_str, date_range, all_dir, select_dir):
     Returns
         FITS file path for the specified date.
     """
+    if not date_str:
+        raise Exception('Date string was not specified in file path retrieval.')
+    
     if date_range:
         data_dir = all_dir
     else:
@@ -197,23 +222,17 @@ def get_fits_path(date_str, date_range, all_dir, select_dir):
 def get_fits_content(fits_path):
     """Extract content from a FITS file
     """
-    try:
-        hdu_list = fits.open(fits_path)
-    except Exception as e:
-        print(f'Error occured opening {fits_path}.')
-        print(e)
-        return None, None, None
+    hdu_list = fits.open(fits_path)
     
     # Take header from final HDU
     header = hdu_list[-1].header
-        
-    # Pass to next FITS file if header information is missing
-    if 'DATE-OBS' not in header.keys():
-        print(f'Observation date keyword missing in header of {fits_path}.')
-        return None, None, None
+    
+    date_key = 'DATE-OBS'
+    if date_key not in header.keys():
+        date_key = 'DATE'
 
     # Extract observation datetime
-    obs_datetime = datetime.fromisoformat(header['DATE-OBS'])
+    obs_datetime = datetime.fromisoformat(header[date_key])
     date_str = datetime.strftime(obs_datetime, DICT_DATE_STR_FORMAT)
 
     num_data_arrays = hdu_list[0].header.get('NAXIS3')
@@ -226,8 +245,8 @@ def rename_dir(data_dir, remove_gzip=False):
     """Rename all He FITS files to include observation date in title
     """
     # Copy gzip files to FITS files and delete gzip files
-    glob_gzip_pattern = data_dir + '*.fts.gz'
-    gzip_path_list = glob.glob(glob_gzip_pattern)
+    gzip_path_list = glob.glob(data_dir + '*.fts.gz')
+    gzip_path_list.extend(glob.glob(data_dir + '*.fits.gz'))
     
     for gzip_path in gzip_path_list:
         
@@ -244,47 +263,29 @@ def rename_dir(data_dir, remove_gzip=False):
     fits_path_list = glob.glob(data_dir + '*.fts')
     fits_path_list.extend(glob.glob(data_dir + '*.fits'))
     
+    # Extend with SOHO EIT FITS files
+    fits_path_list.extend(glob.glob(data_dir + '*efz*'))
+    
     for fits_path in fits_path_list:
         hdu_list, date_str = get_fits_content(fits_path)[:2]
         
         hdu_list.close()
             
         os.rename(fits_path, data_dir + date_str + '.fts')
-        
-        
-def rename_all_gong(gong_dir):
-    """Rename all GONG magnetogram FITS files to include observation date in title"""
-    glob_pattern = gong_dir + '*.fits'
-    
-    fits_path_list = glob.glob(glob_pattern)
-    
-    for fits_path in fits_path_list:
-        gong_fits = fits.open(fits_path)
-        
-        gong_fits_header_keys = list(gong_fits[0].header.keys())
-                
-        # Pass to next FITS file if header information is missing
-        if 'CAR_ROT' not in gong_fits_header_keys:
-            continue
-        
-        # Carrington Rotation
-        CR_str = f'CR{gong_fits[0].header["CAR_ROT"]}'
-        
-        gong_fits.close()
-            
-        os.rename(fits_path, gong_dir + CR_str + '.fits')
 
 
 # Sunpy Map Operations
-def get_solis_sunpy_map(fits_file):
+def get_nso_sunpy_map(fits_file):
     """Retrieve a Sunpy map with a Helioprojective Cartesian
-    coordinate system and the first data array in a SOLIS VSM FITS file.
+    coordinate system and the first data array in a NSO FITS file
+    from the KPVT or VSM instruments.
     
     Args
         fits_file: path to FITS file
     Returns
         Sunpy map object.
     """
+    # Retrieve FITS header and data ------------------------------------------
     with fits.open(fits_file) as hdu_list:
         header = hdu_list[-1].header
         num_data_arrays = header.get('NAXIS3')
@@ -294,20 +295,39 @@ def get_solis_sunpy_map(fits_file):
         else:
             data = hdu_list[-1].data[0]
     
-    # Apply absolute value of coordinate change per pixel such that
-    # Solar-X is positive
-    header['CDELT1'] = abs(header['CDELT1'])
+    # Clean header and data --------------------------------------------------
     
-    # Helioprojective Cartesian coordinates must have
-    # arcsec units for further processing. Warning messages
-    # will appear but the map will be produced successfully.
-    if (header['WCSNAME'] == 'Helioprojective-cartesian'
+    # Remove error causing keywords
+    # PC indicates presence of coordinate transformation
+    # BLANK only applies to integer data
+    # COMMENT and HISTORY may contain non-ascii content and is not needed
+    for key in ['PC1_1', 'PC1_2', 'BLANK', 'COMMENT', 'HISTORY']:
+        if key in header.keys():
+            header.pop(key)
+    
+    # Convert pixels with common value to first background pixel to zero value
+    background_val = data[0,0]
+    data = np.where(data == background_val, 0, data)
+    
+    if not header.get('DATE-OBS'):
+        header['DATE-OBS'] = header['DATE']
+    
+    # Clean World Coordinate System ------------------------------------------
+    
+    # Check for incorrect or missing WCS and modify
+    wcs_name = header.get('WCSNAME')
+    
+    # Perform requisite checks on VSM maps with Heliocentric Cartesian
+    # coordinate system for coordinate system change to Helioprojective
+    
+    # Must have arcsec units. Warning messages will appear but the map will
+    # be produced successfully.
+    if (wcs_name == 'Helioprojective-cartesian'
         and header['CUNIT1'] != 'arcsec'):
         return sunpy.map.Map(data, header)
-        
-    # Heliocentric Cartesian coordinates must have zero
-    # centered coordinates
-    if (header['WCSNAME'] == 'Heliocentric-cartesian (approximate)'
+    
+    # Must have zero centered coordinates
+    if (wcs_name == 'Heliocentric-cartesian (approximate)'
         and (header['CRVAL1'] != 0 or header['CRVAL2'] != 0)):
         print((f'Failed to convert {fits_file} into a Sunpy map.')
               + ('Coordinates were Heliocentric but were not ')
@@ -318,13 +338,33 @@ def get_solis_sunpy_map(fits_file):
     # and Heliographic coordinates to avoid warning messages due to
     # missing keywords
     earth_hp_coords = frames.Helioprojective(
-        header['CRVAL1']*u.arcsec, header['CRVAL2']*u.arcsec,
+        0*u.arcsec, 0*u.arcsec,
         observer='earth', obstime=header['DATE-OBS'],
     )
     earth_header = sunpy.map.make_fitswcs_header(data, earth_hp_coords)
-    for earth_coord_key in ['RSUN_REF', 'DSUN_OBS', 'HGLN_OBS', 'HGLT_OBS']:
+    for earth_coord_key in EARTH_COORD_KEYS:
         header[earth_coord_key] = earth_header[earth_coord_key]
-
+        
+    # Add Earth-based Carrington longitude
+    header['CRLN_OBS'] = sunpy.coordinates.sun.L0(header['DATE-OBS']).value
+    
+    # Create header keywords for missing WCS
+    # Assume helioprojective scale, shared scale in the Tx and Ty directions,
+    # and arcsec units
+    if not wcs_name:
+        header['WCSNAME'] = 'Helioprojective-cartesian'
+        header['CTYPE1'] = 'HPLN-TAN'
+        header['CTYPE2'] = 'HPLT-TAN'
+        header['CDELT1'] = header['SCALE']
+        header['CDELT2'] = header['SCALE']
+        header['CUNIT1'] = 'arcsec'
+        header['CUNIT2'] = 'arcsec'
+        return sunpy.map.Map(data, header)
+    
+    # Apply absolute value of coordinate change per pixel such that
+    # Solar-X is positive
+    header['CDELT1'] = abs(header['CDELT1'])
+    
     # Change primary World Coordinate System from Heliocentric Cartesian
     # to Helioprojective Cartesian for Sunpy to create map
     if header['WCSNAME'] == 'Heliocentric-cartesian (approximate)':
@@ -359,14 +399,6 @@ def get_solis_sunpy_map(fits_file):
         header['CTYPE2'] = 'HPLT-TAN'
         header['CUNIT1'] = 'arcsec'
         header['CUNIT2'] = 'arcsec'
-
-        # Remove error causing keywords which indicate presence of
-        # coordinate transformation
-        header.pop('PC1_1')
-        header.pop('PC2_2')
-        
-        # Remove keyword that only applies to integer data
-        header.pop('BLANK')
         
     return sunpy.map.Map(data, header)
 
@@ -412,7 +444,8 @@ def get_smoothed_map(sunpy_map, smooth_size_percent):
 
 # Adjacent Observation Date Retrieval
 def get_nearest_date_str(date_str_list, selected_date_str):
-    """Retrieve date string in list that is nearest a selected date string.
+    """Retrieve date string in list that is nearest a selected date string
+    within an hour window.
     
     Args
         date_str_list: list of date strings
