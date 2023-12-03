@@ -23,4 +23,9 @@ Tested data includes observations from the Kitt Peak Vacuum Telescope (KPVT) spe
 
 ## Contact
 
-Jaime Landeros (jalanderos@cpp.edu)
+Jaime Landeros
+Jaime A. Landeros
+Solar Physics Intern | NASA Goddard | ADNET
+Space Physics Intern | NCAR High Altitude Observatory
+Aerospace Engineering Student | Cal Poly Pomona
+Email: jalanderos@cpp.edu
