@@ -12,6 +12,10 @@ Coronal Holes (CH) are large-scale, low-density regions in the solar atmosphere 
 
 Tested data includes observations from the Kitt Peak Vacuum Telescope (KPVT) spectromagnetograph and Synoptic Optical Long-term Investigations of the Sun (SOLIS) Vector spectromagnetograph (VSM).
 
+KPVT Data: https://nispdata.nso.edu/ftp/kpvt/daily/raw/
+
+SOLIS Data: https://solis.nso.edu/0/vsm/VSMDataSearch.php?stime=1059717600&etime=1701647999&thumbs=0&pagesize=150&obsmode[]=1083i&sobsmode=1&sobstype=&display=1
+
 ## Code Structure
 
 1. `STRIDE-CH.ipynb`: Notebook for producing STRIDE-CH data products
