@@ -1,4 +1,5 @@
-"""Library of functions to detect coronal holes.
+"""
+Library of functions to detect coronal holes.
 """
 
 import os
@@ -294,10 +295,11 @@ def pre_process_v0_5_1(he_map):
     
     # Remove off limb pixels
     all_hp_coords = sunpy.map.maputils.all_coordinates_from_map(he_map)
-    mask = sunpy.map.maputils.coordinate_is_on_solar_disk(all_hp_coords)
+    on_disk_mask = sunpy.map.maputils.coordinate_is_on_solar_disk(all_hp_coords)
     
+    # TODO: .data redundant?
     pre_processed_map = sunpy.map.Map(
-        np.where(mask, pre_processed_map_data.data, np.nan), he_map.meta
+        np.where(on_disk_mask, pre_processed_map_data.data, np.nan), he_map.meta
     )
         
     return pre_processed_map
@@ -445,7 +447,7 @@ def fill_rm(array, min_size):
 
 
 def get_ch_mask(array, percent_of_peak, morph_radius, min_size=MIN_PX_SIZE):
-    """Retrieve a single segmentation.
+    """Retrieve a single segmentation. Applicable up to v0.5.
     
     Args
         array: image to process

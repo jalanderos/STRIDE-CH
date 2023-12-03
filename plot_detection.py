@@ -1,4 +1,6 @@
-"""Library of functions to plot relevant observations and STRIDE-CH output.
+"""
+Library of functions to plot data products and observations
+relevant to STRIDE-CH.
 """
 
 import sunpy.map

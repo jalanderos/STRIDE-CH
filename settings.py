@@ -1,5 +1,5 @@
 """
-Script for declaration of He I CH Detection data settings.
+Script for declaration of data locations in file system.
 """
 
 # CH Detection Data Paths ----------------------------------------------------
@@ -62,9 +62,11 @@ PREPROCESS_MAP_SAVE_DIR = PREPROCESS_DIR + 'v0_5_1/'
 # DETECTION_VERSION_DIR = DETECT_DIR + 'v0_4_Unipolar/'
 # DETECTION_VERSION_DIR = DETECT_DIR + 'v0_5/'
 # DETECTION_VERSION_DIR = DETECT_DIR + 'v0_5_1_Conservative/'
-DETECTION_VERSION_DIR = DETECT_DIR + 'v0_5_1/'
+
+# DETECTION_VERSION_DIR = DETECT_DIR + 'v0_5_1/'
 # DETECTION_VERSION_DIR = DETECT_DIR + 'v0_5_1_KPVT/'
-# DETECTION_VERSION_DIR = DETECT_DIR + 'v0_5_1_No_Thresh/'
+DETECTION_VERSION_DIR = DETECT_DIR + 'v0_5_1_No_Thresh/'
+
 # DETECTION_VERSION_DIR = DETECT_DIR + 'vY_Aggressive/'
 # DETECTION_VERSION_DIR = DETECT_DIR + 'vY_Conservative/'
 

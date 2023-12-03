@@ -1,4 +1,5 @@
-"""Library of functions to prepare observations for coronal hole detection.
+"""
+Library of functions to prepare observations for coronal hole detection.
 """
 
 import os
