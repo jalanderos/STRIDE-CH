@@ -8,7 +8,6 @@ import gzip
 import shutil
 import sunpy.map
 import numpy as np
-from PIL import Image
 from scipy import ndimage
 from datetime import datetime, timedelta
 
@@ -565,27 +564,6 @@ def extract_gong(gong_dir):
     return gong_dict
 
 
-def extract_comparison_ims(data_dir):
-    """Extract all EUV or WSA coronal holes plot images to a
-    dictionary keyed by date strings for comparison with He I observations.
-    """
-    glob_pattern = data_dir + '*.png'
-    
-    img_path_list = glob.glob(glob_pattern)
-    
-    img_dict = {}
-    
-    for img_path in img_path_list:
-        img_file = img_path.split('/')[-1]
-        date_str = img_file.split('.')[0]
-        
-        comp_img = Image.open(img_path)
-        
-        img_dict[date_str] = comp_img
-        
-    return img_dict
-
-
 def extract_nso_eqw(nso_single_dir):
     """Extract NSO pre-processed Equivalent Width arrays from 
     He I FITS files to a dictionary keyed by date strings.
@@ -656,6 +634,28 @@ def extract_nso_ch_maps(nso_merged_dir):
         
     return ch_map_dict
 
+
+# Unused Code
+
+# def extract_comparison_ims(data_dir):
+#     """Extract all EUV or WSA coronal holes plot images to a
+#     dictionary keyed by date strings for comparison with He I observations.
+#     """
+#     glob_pattern = data_dir + '*.png'
+    
+#     img_path_list = glob.glob(glob_pattern)
+    
+#     img_dict = {}
+    
+#     for img_path in img_path_list:
+#         img_file = img_path.split('/')[-1]
+#         date_str = img_file.split('.')[0]
+        
+#         comp_img = Image.open(img_path)
+        
+#         img_dict[date_str] = comp_img
+        
+#     return img_dict
 
 # Trial Download Routine
 # from datetime import datetime, timedelta

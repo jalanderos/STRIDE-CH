@@ -18,12 +18,26 @@ SOLIS Data: https://solis.nso.edu/0/vsm/VSMDataSearch.php?stime=1059717600&etime
 
 ## Code Structure
 
-1. `STRIDE-CH.ipynb`: Notebook for producing STRIDE-CH data products
-2. `settings.py`: Script for declaration of data locations in file system
-3. `prepare_data.py`: Library of functions to prepare observations for CH detection
+1. `STRIDE-CH.ipynb`: Notebook for producing STRIDE-CH data products.
+2. `settings.py`: Script for declaration of data locations in file system.
+3. `prepare_data.py`: Library of functions to prepare observations for CH detection.
 4. `detect.py`: Library of functions to detect CHs.
-5. `plot_detection.py`: Library of functions to plot observations and data products
-6. `Exploration.ipynb`: Notebook for exploratory development of STRIDE-CH
+5. `plot_detection.py`: Library of functions to plot observations and data products.
+6. `Exploration.ipynb`: Notebook for exploratory development of STRIDE-CH. This notebook is not polished, but made visible for the sake of completeness.
+
+## Dependencies
+
+The following dependencies do not include packages required for executing and debugging Jupyter notebooks. Please see the Contact section for the email to write to regarding help in this or any other area. 
+
+If you wish to create an environment to better manage Python packages and dependencies, an installation of anaconda or miniconda will be needed. Once installed run the following commands:
+```
+conda create --name stride-ch python=3.11.0
+conda activate stride-ch
+```
+The following dependency installation command may be executed with or without having created a conda enviroment with the above steps.
+```
+pip install -r requirements.txt
+```
 
 ## Contact
 

@@ -6,15 +6,11 @@ relevant to STRIDE-CH.
 import sunpy.map
 import numpy as np
 import astropy.units as u
-from scipy import ndimage
-import plotly.express as px
-from skimage import filters
 from astropy.io import fits
 from datetime import datetime
 from matplotlib import colormaps
 from astropy.coordinates import SkyCoord
 from matplotlib import colormaps, pyplot as plt
-from sunpy.coordinates.sun import carrington_rotation_number
 
 from settings import *
 import prepare_data
