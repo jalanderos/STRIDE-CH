@@ -6,3 +6,11 @@ matplotlib==3.7.0
 astropy==5.2.1
 sunpy==5.1.0
 moviepy==1.0.3
+ipykernel==6.19.4
+ipywidgets==8.1.1
+
+# sunpy.net requirements
+BeautifulSoup4==4.12.2
+lxml==4.9.3
+zeep==4.2.1
+drms==0.7.0
