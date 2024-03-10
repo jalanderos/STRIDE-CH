@@ -950,6 +950,92 @@ def get_ensemble_vY(pre_processed_map, reprojected_mag_map,
     return ensemble_map_data, masks_by_ch, confidence_levels, unipolarity_by_ch
 
 
+def get_ensemble_v1_0(pre_processed_map, reprojected_mag_map,
+                      percent_of_peak_list, morph_radius_dist_list,
+                      unipolarity_threshold):
+    """Retrieve an ensemble of segmentations sorted by CH unipolarity.
+    
+    Args
+        pre_processed_map: Sunpy map object to segment
+        reprojected_mag_map: Sunpy map object of magnetogram reprojected
+            to align with the ensemble map
+        percent_of_peak_list: list of float percentage measured from the zero
+            value up to or beyond the histogram value
+        morph_radius_dist_list: list of float distances in Mm for radius of
+            disk structuring element in morphological operations
+        unipolarity_threshold: float unipolarity in [0,1) at which to
+            threshold candidate CHs
+    Returns
+        Ensemble greyscale coronal holes mask sorted by unipolarity.
+        List of coronal holes masks.
+        List of confidence levels in mask layers.
+        Confidence assignment metric list of unipolarity.
+    """
+    pre_processed_map_data = np.flipud(pre_processed_map.data)
+    
+    # Create global segmentations for varied design variable combinations
+    ch_mask_list = get_ch_mask_list_v0_5_1(
+        pre_processed_map, percent_of_peak_list, morph_radius_dist_list
+    )
+    
+    # List to be extended by masks for distinct CHs from all segmentations
+    masks_by_ch = []
+    
+    ones_array = np.ones_like(pre_processed_map_data)
+    
+    for ch_mask in ch_mask_list:
+        masks_by_ch.extend(
+            get_map_data_by_ch(ones_array, ch_mask)
+        )
+    
+    num_ch = len(masks_by_ch)
+    
+    # Compute constant area per square pixel once for all CHs
+    A_per_square_px = get_A_per_square_px(pre_processed_map)
+    
+    # List to hold unipolarity for distinct CHs from all segmentations
+    unipolarity_by_ch = []
+    
+    for ch_label in range(num_ch):
+        distinct_ch_mask = masks_by_ch[ch_label]
+        
+        # Not flipping works right
+        distinct_ch_map = sunpy.map.Map(
+            distinct_ch_mask, pre_processed_map.meta
+        )
+        outcome_dict = get_outcomes(
+            distinct_ch_map, reprojected_mag_map, A_per_square_px
+        )
+        unipolarity_by_ch.append(outcome_dict['unipolarity'])
+    
+    # Sort unipolarities from greatest to least
+    sorted_idxs = np.argsort(unipolarity_by_ch)
+    
+    # Sort candidate CHs from greatest to least gradient median
+    masks_by_ch = [masks_by_ch[i] for i in sorted_idxs]
+    unipolarity_by_ch = [unipolarity_by_ch[i] for i in sorted_idxs]
+    
+    # Assign confidence by unipolarity above a threshold
+    confidence_levels = np.array(
+        [(unipolarity - unipolarity_threshold)/(1 - unipolarity_threshold)
+        for unipolarity in unipolarity_by_ch]
+    )
+    confidence_levels = np.where(
+        confidence_levels > 0, confidence_levels, 0
+    )
+
+    # Construct ensemble map by adding distinct CHs with assigned
+    # confidence level values to an empty base disk    
+    ensemble_map_data = np.where(
+        ~np.isnan(pre_processed_map_data), 0, np.nan
+    )
+    for distinct_ch, confidence in zip(masks_by_ch, confidence_levels):
+        ensemble_map_data = np.where(
+            ~np.isnan(distinct_ch), confidence, ensemble_map_data
+        )
+    return ensemble_map_data, masks_by_ch, confidence_levels, unipolarity_by_ch
+
+
 # Outcome Calculation Functions
 def get_px_percent_list(ch_mask_list):
     """Retrieve the percentage of pixels detected in each segmentation
@@ -1360,8 +1446,8 @@ def get_outcome_time_series_dict_v0_1(he_date_str_list, detection_save_dir):
 
     for he_date_str in he_date_str_list:
         
-        he_fits_file = prepare_data.get_fits_path(
-            he_date_str, DATE_RANGE, ALL_HE_DIR, SELECT_HE_DIR
+        he_fits_file = DATA_FITS_FORMAT.format(
+            data_dir=ALL_HE_DIR, date_str=he_date_str
         )
         he_map = prepare_data.get_nso_sunpy_map(he_fits_file)
         if not he_map:

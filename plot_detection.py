@@ -18,7 +18,6 @@ import detect
 
 
 # Module variables
-DICT_DATE_STR_FORMAT = '%Y_%m_%d__%H_%M'
 EMPTY_ARRAY = np.zeros((2,2))
 
 
@@ -148,6 +147,7 @@ def plot_he_map(fig, subplot_spec, he_map, he_date_str):
         # Saturate post-2004 Rockwell imagery at +/- 200mA
         he_map.plot(axes=ax, vmin=-200, vmax=200)
     else:
+        # Saturate pre-2004 KPVT imagery with bias towards negative values
         he_map.plot(axes=ax, vmin=-200, vmax=100)
         
     return ax

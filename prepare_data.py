@@ -19,9 +19,9 @@ from sunpy.net import Fido, attrs as a
 from sunpy.coordinates import propagate_with_solar_surface
 from sunpy.coordinates.sun import carrington_rotation_number
 
+from settings import *
 
 # Module variables
-DICT_DATE_STR_FORMAT = '%Y_%m_%d__%H_%M'
 HE_OBS_DATE_STR_FORMAT = '%Y-%m-%dT%H:%M:%S'
 NUM_DISPLAY_DATES = 4
 EARTH_COORD_KEYS = ['RSUN_REF', 'DSUN_OBS', 'HGLN_OBS', 'HGLT_OBS']
@@ -141,82 +141,53 @@ def download_euv(download_date_list, euv_date_list, sat,
 
 
 # FITS Extraction
-def get_fits_path_list(date_range, all_dir, select_dir):
-    """Retrieve FITS path list in the specified date range.
-    
-    Args
-        date_range: tuple of min and max date strings
-        all_dir: path to all data directory
-        select_dir: path to selected data directory
-    Returns
-        List of FITS file paths in the specified date range.
-    """
-    if date_range:
-        data_dir = all_dir
-    else:
-        data_dir = select_dir
-    
-    glob_pattern = data_dir + '*.fts'
-    fits_path_list = glob.glob(glob_pattern)
-    
-    if not date_range:
-        return fits_path_list
-    
-    min_date = datetime.strptime(date_range[0], DICT_DATE_STR_FORMAT)
-    max_date = datetime.strptime(date_range[1], DICT_DATE_STR_FORMAT)
-
-    date_str_list = [fits_path.split('/')[-1].split('.')[0]
-                    for fits_path in fits_path_list]
-    datetime_list = [datetime.strptime(date_str, DICT_DATE_STR_FORMAT)
-                    for date_str in date_str_list]
-
-    fits_path_list = [fits_path for fits_path, datetime
-                      in zip(fits_path_list, datetime_list)
-                      if (datetime > min_date) and (datetime < max_date)]
-    fits_path_list.sort()
-        
-    return fits_path_list
-
-
-def get_fits_date_list(date_range, all_dir, select_dir):
+def get_fits_date_list(he_date_range, data_dir):
     """Retrieve list of available date strings of FITS files in the
     specified date range.
     
     Args
-        date_range: tuple of min and max date strings
-        all_dir: path to all data directory
-        select_dir: path to selected data directory
+        he_date_range: tuple of start and end date strings for He I data or
+            list of He I data dates
+        data_dir: path to data directory
     Returns
         List of FITS file paths in the specified date range.
     """
-    fits_path_list = get_fits_path_list(date_range, all_dir, select_dir)
+    # Retrieve FITS path list in the specified date range --------------------
+    glob_pattern = data_dir + '*.fts'
+    fits_path_list = glob.glob(glob_pattern)
+    
+    date_str_list = [fits_path.split('/')[-1].split('.')[0]
+                    for fits_path in fits_path_list]
+    datetime_list = [datetime.strptime(date_str, DICT_DATE_STR_FORMAT)
+                    for date_str in date_str_list]
+    
+    if isinstance(he_date_range, tuple):
+        # Keep only dates in date range
+        start_date = datetime.strptime(he_date_range[0], DICT_DATE_STR_FORMAT)
+        end_date = datetime.strptime(he_date_range[1], DICT_DATE_STR_FORMAT)
+        
+        fits_path_list = [
+            fits_path for fits_path, datetime
+            in zip(fits_path_list, datetime_list)
+            if (datetime > start_date) and (datetime < end_date)
+        ]
+    else:
+        # Keep dates nearest to date range
+        near_date_str_list = [
+            get_nearest_date_str(date_str_list, selected_date_str)
+            for selected_date_str in he_date_range
+        ]
+        idx_list = [date_str_list.index(near_date_str)
+                    for near_date_str in near_date_str_list]
+        fits_path_list = [fits_path_list[idx] for idx in idx_list]
+    
+    # Obtain date strings of FITS paths --------------------------------------
     fits_file_list = [fits_path.split('/')[-1]
                       for fits_path in fits_path_list]
     date_str_list = [fits_file.split('.')[0] for fits_file in fits_file_list]
     date_str_list.sort()
     
     return date_str_list
-
-
-def get_fits_path(date_str, date_range, all_dir, select_dir):
-    """Retrieve FITS path for the specified date.
-    
-    Args
-        date_str: desired file date string
-        date_range: tuple of min and max date strings
-        all_dir: path to all data directory
-        select_dir: path to selected data directory
-    Returns
-        FITS file path for the specified date.
-    """
-    if not date_str:
-        raise Exception('Date string was not specified in file path retrieval.')
-    
-    if date_range:
-        data_dir = all_dir
-    else:
-        data_dir = select_dir
-    return f'{data_dir}{date_str}.fts'
 
 
 def get_fits_content(fits_path):

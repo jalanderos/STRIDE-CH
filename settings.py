@@ -5,24 +5,19 @@ Script for declaration of data locations in file system.
 # CH Detection Data Paths ----------------------------------------------------
 DATA_DIR = 'assets/'
 DICT_DATE_STR_FORMAT = '%Y_%m_%d__%H_%M'
-
+DATA_FITS_FORMAT = '{data_dir}{date_str}.fts'
 
 # Comparison Observation Paths -----------------------------------------------
-ALL_HE_DIR = DATA_DIR + 'All_He/'
-SELECT_HE_DIR = DATA_DIR + 'Selected_He/'
+HE_DIR = DATA_DIR + 'He/'
 TEST_HE_DIR = DATA_DIR + 'Test_He/'
 
-ALL_MAG_DIR = DATA_DIR + 'All_Mag/'
-SELECT_MAG_DIR = DATA_DIR + 'Selected_Mag/'
+MAG_DIR = DATA_DIR + 'Mag/'
 
-IMG_EUV_DIR = DATA_DIR + 'Img_EUV/'
-ALL_EUV_DIR = DATA_DIR + 'All_EUV/'
-SELECT_EUV_DIR = DATA_DIR + 'Selected_EUV/'
+EUV_DIR = DATA_DIR + 'EUV/'
 
 NSO_INPUT_DIR = DATA_DIR + 'NSO_Input/'
 NSO_SINGLE_DIR = DATA_DIR + 'NSO_Output/single/'
 NSO_MERGED_DIR = DATA_DIR + 'NSO_Output/merged/'
-
 
 # Detection Data Product Paths -----------------------------------------------
 OUTPUT_DIR = 'output/'
@@ -62,13 +57,15 @@ PREPROCESS_MAP_SAVE_DIR = PREPROCESS_DIR + 'v0_5_1/'
 # DETECTION_VERSION_DIR = DETECT_DIR + 'v0_4_Unipolar/'
 # DETECTION_VERSION_DIR = DETECT_DIR + 'v0_5/'
 # DETECTION_VERSION_DIR = DETECT_DIR + 'v0_5_1_Conservative/'
-
-# DETECTION_VERSION_DIR = DETECT_DIR + 'v0_5_1/'
-# DETECTION_VERSION_DIR = DETECT_DIR + 'v0_5_1_KPVT/'
-DETECTION_VERSION_DIR = DETECT_DIR + 'v0_5_1_No_Thresh/'
-
 # DETECTION_VERSION_DIR = DETECT_DIR + 'vY_Aggressive/'
 # DETECTION_VERSION_DIR = DETECT_DIR + 'vY_Conservative/'
+# DETECTION_VERSION_DIR = DETECT_DIR + 'v0_5_1/'
+# DETECTION_VERSION_DIR = DETECT_DIR + 'v0_5_1_KPVT/'
+# DETECTION_VERSION_DIR = DETECT_DIR + 'v0_5_1_No_Thresh/'
+
+# DETECTION_VERSION_DIR = DETECT_DIR + 'v1_0/'
+DETECTION_VERSION_DIR = DETECT_DIR + 'v1_0_No_Thresh/'
+
 
 # Detection save files
 DETECTION_SAVE_DIR = DETECTION_VERSION_DIR + 'Saved_npy_Files/'
@@ -77,6 +74,8 @@ DETECTION_MAP_SAVE_DIR = DETECTION_VERSION_DIR + 'Saved_fits_Files/'
 
 
 # Date Range Options for Detection Data Products -----------------------------
+# DATE_RANGE: tuple of start and end date or list of He I datetimes
+
 # # KPVT period in declining Solar Cycle 23
 # DATE_RANGE = ('2003_07_01__00_00', '2003_08_01__00_00')
 # DATE_DIR = '2003_07/'
@@ -89,9 +88,9 @@ DETECTION_MAP_SAVE_DIR = DETECTION_VERSION_DIR + 'Saved_fits_Files/'
 # DATE_RANGE = ('2009_10_06__00_00', '2009_10_31__23_00')
 # DATE_DIR = '2009_10/'
 
-# Sarnoff-GMU period in rising Solar Cycle 24
-DATE_RANGE = ('2012_04_01__00_00', '2012_09_01__00_00')
-DATE_DIR = '2012_04_2012_08/'
+# # Sarnoff-GMU period in rising Solar Cycle 24
+# DATE_RANGE = ('2012_04_01__00_00', '2012_09_01__00_00')
+# DATE_DIR = '2012_04_2012_08/'
 
 # # April of GMU period
 # DATE_RANGE = ('2012_04_01__00_00', '2012_05_01__00_00')
@@ -101,13 +100,43 @@ DATE_DIR = '2012_04_2012_08/'
 # DATE_RANGE = ('2012_06_01__00_00', '2012_06_30__00_00')
 # DATE_DIR = '2012_06/'
 
+# # August of GMU period
+# DATE_RANGE = ('2012_08_01__00_00', '2012_08_30__00_00')
+# DATE_DIR = '2012_08/'
 
-# # Select few dates for analysis
-# DATE_RANGE = None
-# DATE_DIR = 'Selected_Maps/'
+# # COSPAR cases
+# DATE_RANGE = [
+#     '2015_01_04__20_30',
+#     '2015_01_20__20_25',
+#     '2015_02_10__18_45',
+#     '2015_03_31__18_13',
+#     '2015_04_18__17_22',
+#     '2015_06_06__16_08'
+# ]
+# DATE_DIR = 'COSPAR/'
 
-# # All dates
-# DATE_RANGE = ('2000_01_01__00_00', '2020_01_01__00_00')
+# # COSPAR case 02/10/2015
+# DATE_RANGE = ('2015_02_03__00_00', '2012_02_17__00_00')
+# DATE_DIR = 'COSPAR_2015_02_10/'
+
+# # COSPAR case 06/06/2015
+# DATE_RANGE = ('2015_06_06__00_00', '2015_06_12__00_00')
+# DATE_DIR = 'COSPAR_2015_06_06/'
+
+# Select few dates for analysis
+DATE_RANGE = [
+    '2013_02_16__18_23',
+    '2013_06_19__15_35',
+    '2015_03_29__18_00',
+    '2015_04_28__17_25',
+    '2015_02_27__20_39',
+    '2015_06_19__16_33',
+    '2015_07_16__17_12',
+]
+DATE_DIR = 'Selected_Maps/'
+
+# All dates
+DATE_RANGE = ('2000_01_01__00_00', '2020_01_01__00_00')
 
 
 # # TEST
