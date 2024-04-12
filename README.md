@@ -41,5 +41,5 @@ pip install -r requirements.txt
 
 ## Contact
 
-Jaime A. Landeros, Cal Poly Pomona Aerospace Engineering Undergraduate Student as of Spring 2024. This project is associated with a NASA Goddard Solar Physics Internship.
+Jaime A. Landeros. This project is associated with a 2021-2024 internship under the NASA Goddard Solar Physics Division.
 - Email: See jalanderos Github account
