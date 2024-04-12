@@ -2,7 +2,7 @@
 
 Ensemble Image Segmentation of Coronal Holes in Sub-Transition Region Observations (J. Landeros, in prep)
 
-Online Poster: https://agu23.ipostersessions.com/Default.aspx?s=71-5A-00-D2-CF-A7-05-F8-21-71-63-3B-D7-93-43-6D
+Preprint: https://essopenarchive.org/doi/full/10.22541/essoar.171288623.31778488/v1
 
 ## Abstract
 

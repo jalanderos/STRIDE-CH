@@ -15,3 +15,7 @@ BeautifulSoup4==4.12.2
 lxml==4.9.3
 zeep==4.2.1
 drms==0.7.0
+
+# Exploration
+# plotly==5.16.1
+# External: pip install ipykernel "jupyterlab>=3" "ipywidgets>=7.6"
