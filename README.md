@@ -42,6 +42,12 @@ cd STRIDE-CH
 pip install -r requirements.txt
 ```
 
+#### For Development
+
+```
+pip install -r dev_requirements.txt
+```
+
 ## Contact
 
 Jaime A. Landeros. This project is associated with a 2021-2024 internship under the NASA Goddard Solar Physics Division.
