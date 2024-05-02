@@ -22,27 +22,28 @@ NSO_MERGED_DIR = DATA_DIR + 'NSO_Output/merged/'
 # Detection Data Product Paths -----------------------------------------------
 OUTPUT_DIR = 'output/'
 
+# Directories of intermediate data product FITS file sunpy maps
 MAP_DIR = OUTPUT_DIR + 'FITS_Maps/'
-PREPROCESS_DIR = OUTPUT_DIR + 'Preprocess/'
-DETECT_DIR = OUTPUT_DIR + 'Detection/'
-
-# Intermediate FITS maps
 ROTATED_MAG_SAVE_DIR = MAP_DIR + 'Rotated_Mag/'
 HELIOGRAPH_MAG_SAVE_DIR = MAP_DIR + 'Heliographic_Mag/'
-
+# Ecperimental He I/EUV ratio maps
 RATIO_SAVE_DIR = MAP_DIR + 'Ratio/'
 
-# Detection version path options
-# PREPROCESS_SAVE_DIR = PREPROCESS_DIR + 'Band_Pass/'
-# PREPROCESS_SAVE_DIR = PREPROCESS_DIR + 'Rescale/'
-# PREPROCESS_SAVE_DIR = PREPROCESS_DIR + 'Rescale_Center/'
-PREPROCESS_SAVE_DIR = PREPROCESS_DIR + 'v0_1/'
-# PREPROCESS_SAVE_DIR = PREPROCESS_DIR + 'v0_4/'
-# PREPROCESS_SAVE_DIR = PREPROCESS_DIR + 'v0_4_Ratio/'
+# Directories of preprocessed He I maps as Sunpy maps in FITS files
+# or as arrays in numpy files in older versions
+PREPROCESS_DIR = OUTPUT_DIR + 'Preprocess/'
+# PREPROCESS_NPY_SAVE_DIR = PREPROCESS_DIR + 'Band_Pass/'
+# PREPROCESS_NPY_SAVE_DIR = PREPROCESS_DIR + 'Rescale/'
+# PREPROCESS_NPY_SAVE_DIR = PREPROCESS_DIR + 'Rescale_Center/'
+PREPROCESS_NPY_SAVE_DIR = PREPROCESS_DIR + 'v0_1/'
+# PREPROCESS_NPY_SAVE_DIR = PREPROCESS_DIR + 'v0_4/'
+# PREPROCESS_NPY_SAVE_DIR = PREPROCESS_DIR + 'v0_4_Ratio/'
 
 PREPROCESS_MAP_SAVE_DIR = PREPROCESS_DIR + 'v0_5_1/'
 # PREPROCESS_MAP_SAVE_DIR = PREPROCESS_DIR + 'vY/'
 
+# Directories of data products for various versions
+DETECT_DIR = OUTPUT_DIR + 'Detection/'
 # DETECTION_VERSION_DIR = DETECT_DIR + 'v0_1/'
 # DETECTION_VERSION_DIR = DETECT_DIR + 'v0_2/'
 # DETECTION_VERSION_DIR = DETECT_DIR + 'v0_3/'
@@ -62,14 +63,13 @@ PREPROCESS_MAP_SAVE_DIR = PREPROCESS_DIR + 'v0_5_1/'
 # DETECTION_VERSION_DIR = DETECT_DIR + 'v0_5_1/'
 # DETECTION_VERSION_DIR = DETECT_DIR + 'v0_5_1_KPVT/'
 # DETECTION_VERSION_DIR = DETECT_DIR + 'v0_5_1_No_Thresh/'
-
 # DETECTION_VERSION_DIR = DETECT_DIR + 'v1_0/'
 DETECTION_VERSION_DIR = DETECT_DIR + 'v1_0_No_Thresh/'
 
 
-# Detection save files
-DETECTION_SAVE_DIR = DETECTION_VERSION_DIR + 'Saved_npy_Files/'
-
+# Directories of ensemble segmentation maps as Sunpy maps in FITS files
+# or as arrays in numpy files in older versions
+DETECTION_NPY_SAVE_DIR = DETECTION_VERSION_DIR + 'Saved_npy_Files/'
 DETECTION_MAP_SAVE_DIR = DETECTION_VERSION_DIR + 'Saved_fits_Files/'
 
 
@@ -88,6 +88,10 @@ DETECTION_MAP_SAVE_DIR = DETECTION_VERSION_DIR + 'Saved_fits_Files/'
 # DATE_RANGE = ('2009_10_06__00_00', '2009_10_31__23_00')
 # DATE_DIR = '2009_10/'
 
+# # Sarnoff period in minimum post-Solar Cycle 23
+# DATE_RANGE = ('2010_05_01__00_00', '2010_10_01__00_00')
+# DATE_DIR = '2010_05_2010_09/'
+
 # # Sarnoff-GMU period in rising Solar Cycle 24
 # DATE_RANGE = ('2012_04_01__00_00', '2012_09_01__00_00')
 # DATE_DIR = '2012_04_2012_08/'
@@ -104,7 +108,11 @@ DETECTION_MAP_SAVE_DIR = DETECTION_VERSION_DIR + 'Saved_fits_Files/'
 # DATE_RANGE = ('2012_08_01__00_00', '2012_08_30__00_00')
 # DATE_DIR = '2012_08/'
 
-# # COSPAR cases
+# Sarnoff period in max of Solar Cycle 24
+DATE_RANGE = ('2015_01_01__00_00', '2015_07_01__00_00')
+DATE_DIR = '2015_01_2015_2015_06_06/'
+
+# COSPAR cases
 # DATE_RANGE = [
 #     '2015_01_04__20_30',
 #     '2015_01_20__20_25',
@@ -124,20 +132,20 @@ DETECTION_MAP_SAVE_DIR = DETECTION_VERSION_DIR + 'Saved_fits_Files/'
 # DATE_DIR = 'COSPAR_2015_06_06/'
 
 # Select few dates for analysis
-DATE_RANGE = [
-    '2013_02_16__18_23',
-    '2013_06_19__15_35',
-    '2015_03_29__18_00',
-    '2015_04_28__17_25',
-    '2015_02_27__20_39',
-    '2015_06_19__16_33',
-    '2015_07_16__17_12',
-]
-DATE_DIR = 'Selected_Maps/'
+# DATE_RANGE = [
+#     '2013_02_16__18_23',
+#     '2013_06_19__15_35',
+#     '2015_03_29__18_00',
+#     '2015_04_28__17_25',
+#     '2015_02_27__20_39',
+#     '2015_06_19__16_33',
+#     '2015_07_16__17_12',
+# ]
+# DATE_DIR = 'Selected_Maps/'
 
-# All dates
-DATE_RANGE = ('2000_01_01__00_00', '2020_01_01__00_00')
-
+# # All dates
+# DATE_RANGE = ('2000_01_01__00_00', '2020_01_01__00_00')
+# DATE_DIR = 'All_Dates/'
 
 # # TEST
 # DATE_RANGE = ('2012_06_01__00_00', '2012_06_03__00_00')

@@ -24,7 +24,8 @@ SOLAR_AREA = 4*np.pi* (1*u.solRad).to(u.Mm)**2
 MIN_PX_SIZE = 5000
 MIN_SIZE = 3E9*u.km**2
 OUTCOME_KEY_LIST = [
-    'area', 'cm_lat', 'cm_lon', 'unsigned_flux', 'signed_flux',
+    'area', 'cm_lat', 'cm_lon', 'cm_foreshort',
+    'unsigned_flux', 'signed_flux',
     'mag_skew', 'unipolarity', 'grad_median'
 ]
 
@@ -1231,13 +1232,21 @@ def get_outcomes(ensemble_map, reprojected_mag_map, A_per_square_px,
     # Sum area detected in all pixels
     outcome_dict['area'] = np.sum(pixel_areas).value
     
-    # Center of mass
-    outcome_dict['cm_lat'] = (
+    # Center of mass coordinates
+    cm_lat = (
         np.sum(detected_hg_coords.lat*pixel_areas)/np.sum(pixel_areas)
-    ).value
-    outcome_dict['cm_lon'] = (
+    )
+    cm_lon = (
         np.sum(detected_hg_coords.lon*pixel_areas)/np.sum(pixel_areas)
-    ).value
+    )
+    B0 = ensemble_map.observer_coordinate.lat
+    
+    outcome_dict['cm_lat'] = cm_lat.value
+    outcome_dict['cm_lon'] = cm_lon.value
+    outcome_dict['cm_foreshort'] = (
+        np.cos(cm_lon.to(u.rad).value)
+        *np.cos(cm_lat.to(u.rad).value - B0.to(u.rad).value)
+    )
     
     # Magnetic outcomes ------------------------------------------------------
     pixel_B_LOS, failed_mag_idxs = get_pixel_B_LOS(

@@ -133,6 +133,7 @@ def download_euv(download_date_list, euv_date_list, sat,
     if downloaded_dates:
         print('Downloaded EUV Observation Datetimes:')
         display_dates(downloaded_dates)
+        print()
         
         print('Failed EUV Observation Datetimes:')
         display_dates(failed_dates)
@@ -457,12 +458,22 @@ def get_latest_date_str(date_str_list, selected_date_str, hr_window=3):
         datetimes, key=lambda datetime: abs(datetime - selected_datetime)
     )
 
-    # Select nearest datetime in the past if outside hour window
+    # Select nearest datetime in the past if outside small hour window
     datetime_diff = nearest_datetime - selected_datetime
-    if datetime_diff > timedelta(hours=hr_window):        
-        datetimes = datetimes[[datetime < selected_datetime for datetime in datetimes]]
+    if datetime_diff > timedelta(hours=hr_window):
+        datetimes_behind_selected_datetime = [
+            datetime < selected_datetime for datetime in datetimes
+        ]
+        past_datetimes = datetimes[datetimes_behind_selected_datetime]
+        if past_datetimes.size == 0:
+            raise Exception(
+                (f'No datetimes are available behind {selected_date_str} '
+                + f'or ahead by <{hr_window} hours. Increase the `hr_window` '
+                'argument.')
+            )
+        
         nearest_datetime = max(
-            datetimes, key=lambda datetime: datetime - selected_datetime
+            past_datetimes, key=lambda datetime: datetime - selected_datetime
         )
 
     return datetime.strftime(nearest_datetime, DICT_DATE_STR_FORMAT)

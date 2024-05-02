@@ -10,7 +10,7 @@ from astropy.io import fits
 from datetime import datetime
 from matplotlib import colormaps
 from astropy.coordinates import SkyCoord
-from matplotlib import colormaps, pyplot as plt
+from matplotlib import cm, colormaps, colors, pyplot as plt
 
 from settings import *
 import prepare_data
@@ -19,6 +19,16 @@ import detect
 
 # Module variables
 EMPTY_ARRAY = np.zeros((2,2))
+
+CONFIDENCE_RANGE_V1_0 = [0,1]
+
+# Primary
+# ENSEMBLE_CMAP = 'magma'
+# ENSEMBLE_BACKGROUND_OFFSET = -0.4
+
+# No unipolarity threshold: 3 color bands to aid unipolarity range ID
+ENSEMBLE_CMAP = 'cubehelix'
+ENSEMBLE_BACKGROUND_OFFSET = -0.2
 
 
 # General Visualization
@@ -182,6 +192,35 @@ def plot_euv_map(fig, subplot_spec, euv_map, euv_date_str):
     return ax
 
 
+def plot_ensemble_map_v1_0(fig, subplot_spec, ensemble_map):
+    nrows, ncols, idx = subplot_spec
+    ax = fig.add_subplot(nrows, ncols, idx, projection=ensemble_map)
+    
+    # Create colormap objects with nonzero colors brightened from black background
+    zero_confidence_color = np.interp(
+        0, [ENSEMBLE_BACKGROUND_OFFSET, 1], CONFIDENCE_RANGE_V1_0
+    )
+    color_range = np.linspace(zero_confidence_color, 1, 256)
+
+    black_background = [0,0,0,1]
+    brightened_cmap_array = colormaps[ENSEMBLE_CMAP](color_range)
+    black_background_cmap = colors.ListedColormap(
+        np.vstack((black_background, brightened_cmap_array))
+    )
+    cb_cmap = colors.ListedColormap(brightened_cmap_array)
+
+    ensemble_map.plot(
+        axes=ax, title='', cmap=black_background_cmap,
+        vmin=CONFIDENCE_RANGE_V1_0[0], vmax=CONFIDENCE_RANGE_V1_0[1]
+    )
+    norm = colors.Normalize(
+        vmin=CONFIDENCE_RANGE_V1_0[0], vmax=CONFIDENCE_RANGE_V1_0[1]
+    )
+    cb = fig.colorbar(cm.ScalarMappable(norm=norm, cmap=cb_cmap), ax=ax)
+    
+    return ax
+
+
 def plot_map_contours(ax, smooth_map):
     """Add contours of large scale neutral regions from a smoothed
     Sunpy map to axes 
@@ -323,7 +362,7 @@ def plot_he_neutral_lines_euv(fig, he_date_str, mag_date_str,
     with neutral lines, and an EUV observation.
     """
     # Extract He I observation
-    he_map = prepare_data.get_nso_sunpy_map(ALL_HE_DIR + he_date_str + '.fts')
+    he_map = prepare_data.get_nso_sunpy_map(HE_DIR + he_date_str + '.fts')
     if not he_map:
         print(f'{he_date_str} He I observation extraction failed.')
         
@@ -339,7 +378,7 @@ def plot_he_neutral_lines_euv(fig, he_date_str, mag_date_str,
     reprojected_smooth_map = sunpy.map.Map(reprojected_smooth_file)
     
     # Extract EUV map
-    euv_map = sunpy.map.Map(ALL_EUV_DIR + euv_date_str + '.fts')
+    euv_map = sunpy.map.Map(EUV_DIR + euv_date_str + '.fts')
     
     plot_he_map(fig, (nrows, 3, 1), he_map, he_date_str)
     
@@ -358,7 +397,7 @@ def plot_he_neutral_lines_euv_v0_5_1(fig, he_date_str, mag_date_str,
     with neutral lines, and an EUV observation.
     """
     # Extract He I observation
-    he_map = prepare_data.get_nso_sunpy_map(ALL_HE_DIR + he_date_str + '.fts')
+    he_map = prepare_data.get_nso_sunpy_map(HE_DIR + he_date_str + '.fts')
     if not he_map:
         print(f'{he_date_str} He I observation extraction failed.')
     
@@ -376,7 +415,7 @@ def plot_he_neutral_lines_euv_v0_5_1(fig, he_date_str, mag_date_str,
     reprojected_smooth_map = sunpy.map.Map(reprojected_smooth_file)
     
     # Extract EUV map
-    euv_map = sunpy.map.Map(ALL_EUV_DIR + euv_date_str + '.fts')
+    euv_map = sunpy.map.Map(EUV_DIR + euv_date_str + '.fts')
 
     # Plot He observation
     if not hg_reproject:
@@ -391,12 +430,48 @@ def plot_he_neutral_lines_euv_v0_5_1(fig, he_date_str, mag_date_str,
     plot_he_map(fig, ax1_gridspec, he_map, he_date_str)
     
     # Plot ensemble map with overlayed neutral lines
-    ensemble_map.plot(axes=ax2, title='', cmap='magma')
+    ensemble_map.plot(axes=ax2, title='', cmap='magma', vmin=0, vmax=100)
     plot_map_contours(ax2, reprojected_smooth_map)
     
     plot_euv_map(fig, ax3_gridspec, euv_map, euv_date_str)
             
-            
+
+def plot_he_neutral_lines_euv_v1_0(fig, he_date_str, mag_date_str,
+                                   euv_date_str, nrows=1):
+    """Plot a 3 panel comparison of a saturated He I observation, ensemble map
+    with neutral lines, and an EUV observation.
+    """
+    # Extract He I observation
+    he_map = prepare_data.get_nso_sunpy_map(HE_DIR + he_date_str + '.fts')
+    if not he_map:
+        print(f'{he_date_str} He I observation extraction failed.')
+    
+    # Extract saved ensemble map array and convert to Sunpy map
+    ensemble_file = f'{DETECTION_MAP_SAVE_DIR}{he_date_str}_ensemble_map.fits'
+    ensemble_map = sunpy.map.Map(ensemble_file)
+
+    # Extract saved processed magnetogram
+    reprojected_smooth_file = (f'{ROTATED_MAG_SAVE_DIR}Mag{mag_date_str}'
+                               + f'_He{he_date_str}_smooth.fits')
+    reprojected_smooth_map = sunpy.map.Map(reprojected_smooth_file)
+    
+    # Extract EUV map
+    euv_map = sunpy.map.Map(EUV_DIR + euv_date_str + '.fts')
+
+    # Plot He observation
+    ax1_gridspec = (nrows, 3, 1)
+    ax2_gridspec = (nrows, 3, 2)
+    ax3_gridspec = (nrows, 3, 3)
+    
+    plot_he_map(fig, ax1_gridspec, he_map, he_date_str)
+    
+    # Plot ensemble map with overlayed neutral lines
+    ax = plot_ensemble_map_v1_0(fig, ax2_gridspec, ensemble_map)
+    plot_map_contours(ax, reprojected_smooth_map)
+    
+    plot_euv_map(fig, ax3_gridspec, euv_map, euv_date_str)
+
+
 def plot_thresh_outcome_vs_time(ax, outcome_df, date_str, cmap, ylabel):
     """Plot outcome stacked plot vs time for thresholded maps.
     
