@@ -39,6 +39,7 @@ PREPROCESS_NPY_SAVE_DIR = PREPROCESS_DIR + 'v0_1/'
 # PREPROCESS_NPY_SAVE_DIR = PREPROCESS_DIR + 'v0_4/'
 # PREPROCESS_NPY_SAVE_DIR = PREPROCESS_DIR + 'v0_4_Ratio/'
 
+# v1.0 preprocessing method has been preserved from v0.5.1
 PREPROCESS_MAP_SAVE_DIR = PREPROCESS_DIR + 'v0_5_1/'
 # PREPROCESS_MAP_SAVE_DIR = PREPROCESS_DIR + 'vY/'
 
@@ -63,8 +64,8 @@ DETECT_DIR = OUTPUT_DIR + 'Detection/'
 # DETECTION_VERSION_DIR = DETECT_DIR + 'v0_5_1/'
 # DETECTION_VERSION_DIR = DETECT_DIR + 'v0_5_1_KPVT/'
 # DETECTION_VERSION_DIR = DETECT_DIR + 'v0_5_1_No_Thresh/'
-# DETECTION_VERSION_DIR = DETECT_DIR + 'v1_0/'
-DETECTION_VERSION_DIR = DETECT_DIR + 'v1_0_No_Thresh/'
+DETECTION_VERSION_DIR = DETECT_DIR + 'v1_0/'
+# DETECTION_VERSION_DIR = DETECT_DIR + 'v1_0_No_Thresh/'
 
 
 # Directories of ensemble segmentation maps as Sunpy maps in FITS files
@@ -80,37 +81,37 @@ DETECTION_MAP_SAVE_DIR = DETECTION_VERSION_DIR + 'Saved_fits_Files/'
 # DATE_RANGE = ('2003_07_01__00_00', '2003_08_01__00_00')
 # DATE_DIR = '2003_07/'
 
-# # Rockwell period in declining Solar Cycle 23
+# # Rockwell 2004 period in declining Solar Cycle 23
 # DATE_RANGE = ('2004_11_01__00_00', '2004_12_11__00_00')
 # DATE_DIR = '2004_11_2004_12/'
 
-# # Rockwell period in minimum post-Solar Cycle 23
+# # Rockwell 2009 period in minimum post-Solar Cycle 23
 # DATE_RANGE = ('2009_10_06__00_00', '2009_10_31__23_00')
 # DATE_DIR = '2009_10/'
 
-# # Sarnoff period in minimum post-Solar Cycle 23
+# # Sarnoff 2010 period in minimum post-Solar Cycle 23
 # DATE_RANGE = ('2010_05_01__00_00', '2010_10_01__00_00')
 # DATE_DIR = '2010_05_2010_09/'
 
-# # Sarnoff-GMU period in rising Solar Cycle 24
+# # Sarnoff 2012 period in rising Solar Cycle 24
 # DATE_RANGE = ('2012_04_01__00_00', '2012_09_01__00_00')
 # DATE_DIR = '2012_04_2012_08/'
 
-# # April of GMU period
+# # April of 2012 period
 # DATE_RANGE = ('2012_04_01__00_00', '2012_05_01__00_00')
 # DATE_DIR = '2012_04/'
 
-# # June of GMU period
+# # June of 2012 period
 # DATE_RANGE = ('2012_06_01__00_00', '2012_06_30__00_00')
 # DATE_DIR = '2012_06/'
 
-# # August of GMU period
+# # August of 2012 period
 # DATE_RANGE = ('2012_08_01__00_00', '2012_08_30__00_00')
 # DATE_DIR = '2012_08/'
 
-# Sarnoff period in max of Solar Cycle 24
-DATE_RANGE = ('2015_01_01__00_00', '2015_07_01__00_00')
-DATE_DIR = '2015_01_2015_2015_06_06/'
+# # Sarnoff 2015 period in max of Solar Cycle 24
+# DATE_RANGE = ('2015_01_01__00_00', '2015_07_01__00_00')
+# DATE_DIR = '2015_01_2015_06/'
 
 # COSPAR cases
 # DATE_RANGE = [
@@ -143,9 +144,9 @@ DATE_DIR = '2015_01_2015_2015_06_06/'
 # ]
 # DATE_DIR = 'Selected_Maps/'
 
-# # All dates
-# DATE_RANGE = ('2000_01_01__00_00', '2020_01_01__00_00')
-# DATE_DIR = 'All_Dates/'
+# All dates
+DATE_RANGE = ('2000_01_01__00_00', '2020_01_01__00_00')
+DATE_DIR = 'All_Dates/'
 
 # # TEST
 # DATE_RANGE = ('2012_06_01__00_00', '2012_06_03__00_00')
