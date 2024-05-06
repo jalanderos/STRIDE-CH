@@ -1,8 +1,6 @@
 # STRIDE-CH 1.0
 
-Magnetic-Field Constrained Ensemble Image Segmentation of Coronal Holes (J. Landeros, in prep)
-
-Preprint: https://essopenarchive.org/doi/full/10.22541/essoar.171288623.31778488/v1
+Magnetic-Field Constrained Ensemble Image Segmentation of Coronal Holes
 
 ## Abstract
 
