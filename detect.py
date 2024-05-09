@@ -1307,7 +1307,8 @@ def get_outcomes_by_ch(ensemble_map, he_map_data,
         confidence_level: confidence level at which to threshold
             ensemble maps for computing area
     Returns
-        Lists of outcomes per CH.
+        Dictionary with outcome keys, each with a list of outcomes per CH as
+            its value.
     """
     if confidence_level <= 0:
         confidence_level = 1e-3

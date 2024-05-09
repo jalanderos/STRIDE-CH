@@ -1,12 +1,6 @@
-# STRIDE-CH 1.0
+# Magnetic-Field Constrained Ensemble Image Segmentation of Coronal Holes
 
-Magnetic-Field Constrained Ensemble Image Segmentation of Coronal Holes (J. Landeros, in prep)
-
-Preprint: https://essopenarchive.org/doi/full/10.22541/essoar.171288623.31778488/v1
-
-## Abstract
-
-Coronal Holes (CHs) are large-scale, low-density regions in the solar atmosphere which may expel high-speed solar wind streams that incite hazardous, geomagnetic storms. Coronal and solar wind models can predict these high-speed streams and the performance of the coronal model can be validated against segmented CH boundaries. We present a novel method named Sub-Transition Region Identification of Ensemble Coronal Holes (STRIDE-CH) to address prominent challenges in segmenting CHs with Extreme Ultraviolet (EUV) imagery. Ground-based, chromospheric He I 10830 Å line imagery and underlying Fe I photospheric magnetograms are revisited to disambiguate CHs from filaments and quiet Sun, overcome obscuration by coronal loops, and complement established methods in the community which use space-borne, coronal EUV observations. Classical computer vision techniques are applied to constrain the radiative and magnetic properties of detected CHs, produce an ensemble of boundaries, and compile these boundaries in a confidence map that quantifies the likelihood of CH presence throughout the solar disk. This method is science-enabling towards future studies of CH formation and variability from a mid-atmospheric perspective.
+[![arXiv](https://img.shields.io/badge/arXiv-2405.04731-b31b1b.svg)](https://arxiv.org/abs/2405.04731)
 
 ## Data
 
