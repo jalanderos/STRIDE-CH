@@ -19,13 +19,26 @@ This format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ### Added
 - Described by the publication linked in `README.md`
-- Past Versions Described in Code
-  - v0.1 - 2023-01-31: Baseline single mask CH detection, primarily with a threshold and morphological operations
-  - v0.2 - 2023-04-01: Introduction of an ensemble of masks for CH detection with area-derived confidence, as described in Appendix A.2.
-  - v0.3 - 2023-04-30: Smoothness-derived confidence, as described in Appendix A.2.
-  - v0.4 - 2023-06-25: Introduction of He I pre-processing, as desribed in 3.1. Data Preparation.
-  - v0.5 - 2023-08-02: Unipolarity-derived confidence, as desribed in 3.2. Segmentation.
-  - v0.5.1 - 2023-11-04: Introduction of data processing and data product development with Sunpy maps, as desribed in 3. Methods.
+
+## Past Versions Described in Code
+
+### v0.5.1 - 2023-11-04
+- Introduction of data processing and data product development with Sunpy maps, as desribed in 3. Methods.
+
+### v0.5 - 2023-08-02
+- Unipolarity-derived confidence, as desribed in 3.2. Segmentation.
+
+### v0.4 - 2023-06-25
+- Introduction of He I pre-processing, as desribed in 3.1. Data Preparation.
+
+### v0.3 - 2023-04-30
+- Smoothness-derived confidence, as described in Appendix A.2.
+### v0.2 - 2023-04-01
+- Introduction of an ensemble of masks for CH detection with area-derived confidence, as described in Appendix A.2.
+
+### v0.1 - 2023-01-31
+- Baseline single mask CH detection, primarily with a threshold and morphological operations
+
 
 [Unreleased v1.1]: https://github.com/jalanderos/STRIDE-CH/compare/release-v1.0...main
 [1.0]: https://github.com/jalanderos/STRIDE-CH/tree/release-v1.0
