@@ -9,25 +9,34 @@ import shutil
 import sunpy.map
 import numpy as np
 from scipy import ndimage
+from skimage import transform
 from datetime import datetime, timedelta
 
 import astropy.units as u
 from astropy.io import fits
+from astropy.coordinates import SkyCoord
 
 from sunpy.coordinates import frames
 from sunpy.net import Fido, attrs as a
 from sunpy.coordinates import propagate_with_solar_surface
 from sunpy.coordinates.sun import carrington_rotation_number
+from sunpy.map.maputils import (
+    all_coordinates_from_map, coordinate_is_on_solar_disk
+)
+
+from acwe_lib import acweSaveSeg_v5, acweRestoreScale
 
 from settings import *
 
 # Module variables
 HE_OBS_DATE_STR_FORMAT = '%Y-%m-%dT%H:%M:%S'
+ACWE_DICT_DATE_STR_FORMAT = '%Y-%m-%dT%H%M%SZ'
+ACWE_SPLIT_FILE_NAME_DATE_IDX = 3
 NUM_DISPLAY_DATES = 4
 EARTH_COORD_KEYS = ['RSUN_REF', 'DSUN_OBS', 'HGLN_OBS', 'HGLT_OBS']
 
 
-# Extraction Functions
+# Extraction Functions -------------------------------------------------------
 def get_image_from_fits(fits_file):
     """Retrieve the first image array from a FITS file, flipped
     upside down for visualization.
@@ -141,7 +150,7 @@ def download_euv(download_date_list, euv_date_list, sat,
         print('No EUV files were downloaded.')
 
 
-# FITS Extraction
+# FITS File Loading and Renaming ---------------------------------------------
 def get_fits_date_list(he_date_range, data_dir):
     """Retrieve list of available date strings of FITS files in the
     specified date range.
@@ -191,28 +200,55 @@ def get_fits_date_list(he_date_range, data_dir):
     return date_str_list
 
 
-def get_fits_content(fits_path):
-    """Extract content from a FITS file
+def get_acwe_date_list(he_date_range):
+    """Retrieve list of ACWE available date strings of Numpy zipped files
+    in the specified date range.
+    
+    Args
+        he_date_range: tuple of start and end date strings for He I data or
+            list of He I data dates
+    Returns
+        List of FITS file paths in the specified date range.
     """
-    hdu_list = fits.open(fits_path)
-    
-    # Take header from final HDU
-    header = hdu_list[-1].header
-    
-    date_key = 'DATE-OBS'
-    if date_key not in header.keys():
-        date_key = 'DATE'
+    # Retrieve FITS path list in the specified date range --------------------
+    glob_pattern = ACWE_DIR + '*/*'
+    npz_path_list = glob.glob(glob_pattern)
 
-    # Extract observation datetime
-    obs_datetime = datetime.fromisoformat(header[date_key])
-    date_str = datetime.strftime(obs_datetime, DICT_DATE_STR_FORMAT)
+    acwe_format_date_str_list = [
+        npz_path.split('/')[-1].split('.')[ACWE_SPLIT_FILE_NAME_DATE_IDX]
+        for npz_path in npz_path_list
+    ]
+    datetime_list = [
+        datetime.strptime(date_str, ACWE_DICT_DATE_STR_FORMAT)
+        for date_str in acwe_format_date_str_list
+    ]
+    date_str_list = [
+        datetime.strftime(d, DICT_DATE_STR_FORMAT)
+        for d in datetime_list
+    ]
 
-    num_data_arrays = hdu_list[0].header.get('NAXIS3')
-    
-    return hdu_list, date_str, num_data_arrays
+    if isinstance(he_date_range, tuple):
+        # Keep only dates in date range
+        start_date = datetime.strptime(he_date_range[0], DICT_DATE_STR_FORMAT)
+        end_date = datetime.strptime(he_date_range[1], DICT_DATE_STR_FORMAT)
+        
+        filtered_date_str_list = [
+            date_str for date_str, d
+            in zip(date_str_list, datetime_list)
+            if (d > start_date) and (d < end_date)
+        ]
+    else:
+        # Keep dates nearest to date range
+        filtered_date_str_list = [
+            get_nearest_date_str(date_str_list, selected_date_str)
+            for selected_date_str in he_date_range
+        ]
+
+    filtered_date_str_list.sort()
+        
+    return filtered_date_str_list
 
 
-# Renaming Data Functions
 def rename_dir(data_dir, remove_gzip=False):
     """Rename all He FITS files to include observation date in title
     """
@@ -246,7 +282,28 @@ def rename_dir(data_dir, remove_gzip=False):
         os.rename(fits_path, data_dir + date_str + '.fts')
 
 
-# Sunpy Map Operations
+def get_fits_content(fits_path):
+    """Extract content from a FITS file
+    """
+    hdu_list = fits.open(fits_path)
+    
+    # Take header from final HDU
+    header = hdu_list[-1].header
+    
+    date_key = 'DATE-OBS'
+    if date_key not in header.keys():
+        date_key = 'DATE'
+
+    # Extract observation datetime
+    obs_datetime = datetime.fromisoformat(header[date_key])
+    date_str = datetime.strftime(obs_datetime, DICT_DATE_STR_FORMAT)
+
+    num_data_arrays = hdu_list[0].header.get('NAXIS3')
+    
+    return hdu_list, date_str, num_data_arrays
+
+
+# Sunpy Map Operations -------------------------------------------------------
 def get_nso_sunpy_map(fits_file):
     """Retrieve a Sunpy map with a Helioprojective Cartesian
     coordinate system and the first data array in a NSO FITS file
@@ -268,7 +325,6 @@ def get_nso_sunpy_map(fits_file):
             data = hdu_list[-1].data[0]
     
     # Clean header and data --------------------------------------------------
-    
     # Remove error causing keywords
     # PC indicates presence of coordinate transformation
     # BLANK only applies to integer data
@@ -375,6 +431,69 @@ def get_nso_sunpy_map(fits_file):
     return sunpy.map.Map(data, header)
 
 
+def get_acwe_sunpy_map(acwe_date_str, acwe_date_list):
+    """Retrieve a Sunpy map for the ACWE segmentation on the provided
+    datetime.
+    
+    Args
+        acwe_date_str: str for ACWE datetime
+    Returns
+        Sunpy map object.
+    """
+    acwe_npz_files = sorted(glob.glob(ACWE_DIR + '*/*'))
+    acwe_npz_file = acwe_npz_files[acwe_date_list.index(acwe_date_str)]
+
+    # Extract 3D array of shape (slice num, 512, 512)
+    fits_header, acwe_header, acwe_slices_data = acweSaveSeg_v5.openSeg(
+        acwe_npz_file
+    )
+
+    # ACWE confidence map via aggregation of slices taken during the
+    # optimization in the segmentation procedure and normalizing
+    acwe_confidence_map_data = np.flipud(
+        np.sum(acwe_slices_data, axis=0)
+        /float(len(acwe_header['BACKGROUND_WEIGHT']))
+    )
+
+    # Resize to EUV image scale.
+    # To avoid resizing the map, a new header would need to be created as tje
+    # reference coordinate acwe_map.reference_pixel cannot be changed with 
+    # sunpy.map.PixelPair(ref_pixel, ref_pixel)
+    resized_shape = tuple(
+        np.array(acwe_confidence_map_data.shape)*acwe_header['RESIZE_PARAM']
+    )
+    acwe_map_data = transform.resize(
+        acwe_confidence_map_data, resized_shape, order=1,
+        preserve_range=True, anti_aliasing=True
+    )
+    
+    # Create Sunpy map
+    acwe_map = sunpy.map.Map(np.flipud(acwe_map_data), fits_header)
+    
+    # Remove off disk pixels
+    all_hp_coords = sunpy.map.maputils.all_coordinates_from_map(acwe_map)
+    on_disk_mask = sunpy.map.maputils.coordinate_is_on_solar_disk(
+        all_hp_coords)
+    acwe_map = sunpy.map.Map(
+        np.where(on_disk_mask, acwe_map.data, np.nan), acwe_map.meta
+    )
+    
+    # Crop EUV map to similar zoom level to other observations 
+    acwe_map = acwe_map.submap(
+        bottom_left=SkyCoord(
+            Tx=-1024*u.arcsec, Ty=-1024*u.arcsec,
+            frame=acwe_map.coordinate_frame
+        ),
+        top_right=SkyCoord(
+            Tx=1024*u.arcsec, Ty=1024*u.arcsec,
+            frame=acwe_map.coordinate_frame
+        )
+    )
+    acwe_map.plot_settings['norm'] = None
+    
+    return acwe_map
+
+
 def diff_rotate(input_map, target_map):
     """Reproject an input map with differential rotation to the datetime of a
     target map.
@@ -414,7 +533,7 @@ def get_smoothed_map(sunpy_map, smooth_size_percent):
     return sunpy.map.Map(smoothed_data, sunpy_map.meta)
 
 
-# Adjacent Observation Date Retrieval
+# Data or Data Product Date Handling -----------------------------------------
 def get_nearest_date_str(date_str_list, selected_date_str):
     """Retrieve date string in list that is nearest a selected date string
     within an hour window.
@@ -479,7 +598,6 @@ def get_latest_date_str(date_str_list, selected_date_str, hr_window=3):
     return datetime.strftime(nearest_datetime, DICT_DATE_STR_FORMAT)
 
 
-# Display Data Functions
 def display_dates(date_list):
     """
     """
@@ -490,208 +608,3 @@ def display_dates(date_list):
         count += 1
         if np.mod(count,NUM_DISPLAY_DATES) == 0:
             print()
-
-
-def display_crs(cr_list):
-    """
-    """
-    count = 0
-    for cr_num in cr_list:
-        print(f'{cr_num} \t', end='')
-        
-        count += 1
-        if np.mod(count,NUM_DISPLAY_DATES) == 0:
-            print()
-
-
-def display_date_to_cr(date_str):
-    """
-    """
-    # Extract observation datetime
-    selected_datetime = datetime.strptime(date_str, DICT_DATE_STR_FORMAT)
-
-    print(f'CR: {int(carrington_rotation_number(selected_datetime))}')
-
-
-# Extract arrays from FITS files. To be deleted
-def extract_gong(gong_dir):
-    """Extract GONG observatory magnetograms from FIT files
-    to a dictionary keyed by Carrington Rotation strings.
-    """
-    glob_pattern = gong_dir + '*.fits'
-        
-    fits_path_list = glob.glob(glob_pattern)
-        
-    gong_dict = {}
-    
-    for fits_path in fits_path_list:
-        gong_fits = fits.open(fits_path)
-        
-        gong_fits_header_keys = list(gong_fits[0].header.keys())
-        
-        # Pass to next FITS file if header information is missing
-        if 'CAR_ROT' not in gong_fits_header_keys:
-            continue
-           
-        # Carrington Rotation
-        cr_num = gong_fits[0].header["CAR_ROT"]
-        
-        # Extract and flip arrays upside down to visualize as images
-        magnetogram = np.flipud(gong_fits[0].data)
-        
-        gong_fits.close()
-                
-        gong_dict[cr_num] = magnetogram
-
-    return gong_dict
-
-
-def extract_nso_eqw(nso_single_dir):
-    """Extract NSO pre-processed Equivalent Width arrays from 
-    He I FITS files to a dictionary keyed by date strings.
-    """
-    glob_pattern = nso_single_dir + '*e31hr*.fts'
-    
-    fits_path_list = glob.glob(glob_pattern)
-
-    nso_eqw_dict = {}
-    
-    for fits_path in fits_path_list:
-        nso_fits = fits.open(fits_path)
-        
-        nso_fits_header_keys = list(nso_fits[0].header.keys())
-        
-        # Pass to next FITS file if header information is missing
-        if 'DATE' not in nso_fits_header_keys:
-            continue
-
-        # Extract observation datetime
-        nso_datetime = datetime.strptime(
-            nso_fits[0].header['DATE'], '%Y%m%d'
-        )
-        date_str = datetime.strftime(nso_datetime, DICT_DATE_STR_FORMAT)
-           
-        # Extract and flip arrays upside down to visualize as images
-        nso_eqw = np.flipud(nso_fits[0].data[0])
-        
-        nso_fits.close()
-                
-        nso_eqw_dict[date_str] = nso_eqw
-        
-    return nso_eqw_dict
-
-
-def extract_nso_ch_maps(nso_merged_dir):
-    """Extract NSO synoptic Carrington maps of estimated coronal holes
-    from FIT files to a dictionary keyed by Carrington Rotation strings.
-    """
-    glob_pattern = nso_merged_dir + '*o31hr*.fts'
-    
-    fits_path_list = glob.glob(glob_pattern)
-    
-    ch_map_dict = {}
-    
-    for fits_path in fits_path_list:
-        nso_ch_fits = fits.open(fits_path)
-        
-        nso_ch_fits_header_keys = list(nso_ch_fits[0].header.keys())
-        
-        # Carrington Rotation Numbers
-        cr_keys = [header_key
-                   for header_key in nso_ch_fits_header_keys
-                   if header_key[:4] == 'CARR']
-        
-        cr_keys.sort()
-        first_cr = nso_ch_fits[0].header[cr_keys[0]]
-        final_cr = nso_ch_fits[0].header[cr_keys[-1]]
-           
-        cr_key = f'{first_cr}__{final_cr}'
-        
-        # Extract and flip arrays upside down to visualize as images
-        ch_map = np.flipud(nso_ch_fits[0].data[0])
-        
-        nso_ch_fits.close()
-        
-        ch_map_dict[cr_key] = ch_map
-        
-    return ch_map_dict
-
-
-# Unused Code
-
-# def extract_comparison_ims(data_dir):
-#     """Extract all EUV or WSA coronal holes plot images to a
-#     dictionary keyed by date strings for comparison with He I observations.
-#     """
-#     glob_pattern = data_dir + '*.png'
-    
-#     img_path_list = glob.glob(glob_pattern)
-    
-#     img_dict = {}
-    
-#     for img_path in img_path_list:
-#         img_file = img_path.split('/')[-1]
-#         date_str = img_file.split('.')[0]
-        
-#         comp_img = Image.open(img_path)
-        
-#         img_dict[date_str] = comp_img
-        
-#     return img_dict
-
-# Trial Download Routine
-# from datetime import datetime, timedelta
-
-# DICT_DATE_STR_FORMAT = '%Y_%m_%d__%H_%M'
-
-# # List of dates to download files for
-# download_dates = []
-
-# # Loop between start_date and end_date to build list of dates
-# date_range = ('2012_04_01__00_00', '2012_04_04__00_00')
-# min_date = datetime.strptime(date_range[0], DICT_DATE_STR_FORMAT)
-# max_date = datetime.strptime(date_range[1], DICT_DATE_STR_FORMAT)
-# current_date = min_date
-
-# while current_date <= max_date:
-#     download_dates.append(current_date)
-#     current_date += timedelta(days=1)
-
-# download_dates
-
-# # Loop over dates to request and record file names and responses in lists
-# all_requested_imgs = []
-# all_responses = []
-
-# for download_date in download_dates:
-#     requested_imgs, responses = request_from_nso(download_date, output_dir)
-
-#     if requested_imgs is None: 
-#         continue
-    
-#     all_requested_imgs.extend(requested_imgs)
-#     all_responses.extend(responses)
-
-
-# def request_from_nso(download_date, output_path):
-#     """Request files from NSO SOLIS VSM website by downloading HTML 
-#     content and searching for matching file links using a regular expression.
-#     If no files are found, return None.
-
-#     Args:
-#        download_date: Date to download images for (datetime.date)
-#        output_path: path to downloaded images
-#     Returns:
-#        List of image file names in the format 'YYYYMMDD_HHMMSS_n7euA_195.jpg'
-#        List of HTTP responses (requests.Response) 
-
-#        Returns None in place of both lists if the request times out, an HTTP
-#        error occurs, a generic request error occurs, or no regular expression
-#        matches are found.
-#     """
-#     requested_imgs = []
-#     responses = []
-
-#     remote_addr = ('https://stereo-ssc.nascom.nasa.gov/browse/' +
-#         f'{download_date.strftime("%Y/%m/%d")}/{args.spacecraft}/' +
-#         'euvi/195/512/')

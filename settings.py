@@ -15,6 +15,9 @@ MAG_DIR = DATA_DIR + 'Mag/'
 
 EUV_DIR = DATA_DIR + 'EUV/'
 
+# Other CH Detection Product Paths -------------------------------------------
+ACWE_DIR = DATA_DIR + 'ACWE/ConMapStandardDefaultHe/'
+
 NSO_INPUT_DIR = DATA_DIR + 'NSO_Input/'
 NSO_SINGLE_DIR = DATA_DIR + 'NSO_Output/single/'
 NSO_MERGED_DIR = DATA_DIR + 'NSO_Output/merged/'
@@ -43,7 +46,8 @@ PREPROCESS_NPY_SAVE_DIR = PREPROCESS_DIR + 'v0_1/'
 PREPROCESS_MAP_SAVE_DIR = PREPROCESS_DIR + 'v0_5_1/'
 # PREPROCESS_MAP_SAVE_DIR = PREPROCESS_DIR + 'vY/'
 
-# Directories of data products for various versions
+# Directories of data products for various versions, as well as for
+# publication plots
 DETECT_DIR = OUTPUT_DIR + 'Detection/'
 # DETECTION_VERSION_DIR = DETECT_DIR + 'v0_1/'
 # DETECTION_VERSION_DIR = DETECT_DIR + 'v0_2/'
@@ -63,16 +67,26 @@ DETECT_DIR = OUTPUT_DIR + 'Detection/'
 # DETECTION_VERSION_DIR = DETECT_DIR + 'vY_Conservative/'
 # DETECTION_VERSION_DIR = DETECT_DIR + 'v0_5_1/'
 # DETECTION_VERSION_DIR = DETECT_DIR + 'v0_5_1_KPVT/'
-# DETECTION_VERSION_DIR = DETECT_DIR + 'v0_5_1_No_Thresh/'
-DETECTION_VERSION_DIR = DETECT_DIR + 'v1_0/'
+DETECTION_VERSION_DIR = DETECT_DIR + 'v0_5_1_No_Thresh/'
+# DETECTION_VERSION_DIR = DETECT_DIR + 'v1_0/'
 # DETECTION_VERSION_DIR = DETECT_DIR + 'v1_0_No_Thresh/'
+# DETECTION_VERSION_DIR = DETECT_DIR + 'v1_1/'
+# DETECTION_VERSION_DIR = DETECT_DIR + 'v1_1_No_Thresh/'
 
+# Directories of fused segmentation maps for various versions, as well as for
+# publication plots
+FUSION_DIR = OUTPUT_DIR + 'MAX-CDM/'
+FUSION_VERSION_DIR = FUSION_DIR + 'STRIDE_v1_1/'
 
-# Directories of ensemble segmentation maps as Sunpy maps in FITS files
+# Directories for publication plots
+# PAPER_PLOT_DIR = 'paper/paper_plots/2024_08_plots/'
+PAPER_PLOT_DIR = 'paper/mini_paper_plots/2024_08_plots/'
+
+# Directories of data prodcuts as Sunpy maps in FITS files
 # or as arrays in numpy files in older versions
-DETECTION_NPY_SAVE_DIR = DETECTION_VERSION_DIR + 'Saved_npy_Files/'
+FUSED_MAP_SAVE_DIR = FUSION_VERSION_DIR + 'Saved_fits_Files/'
 DETECTION_MAP_SAVE_DIR = DETECTION_VERSION_DIR + 'Saved_fits_Files/'
-
+DETECTION_NPY_SAVE_DIR = DETECTION_VERSION_DIR + 'Saved_npy_Files/'
 
 # Date Range Options for Detection Data Products -----------------------------
 # DATE_RANGE: tuple of start and end date or list of He I datetimes
@@ -113,7 +127,7 @@ DETECTION_MAP_SAVE_DIR = DETECTION_VERSION_DIR + 'Saved_fits_Files/'
 # DATE_RANGE = ('2015_01_01__00_00', '2015_07_01__00_00')
 # DATE_DIR = '2015_01_2015_06/'
 
-# COSPAR cases
+# # COSPAR cases
 # DATE_RANGE = [
 #     '2015_01_04__20_30',
 #     '2015_01_20__20_25',
@@ -132,7 +146,7 @@ DETECTION_MAP_SAVE_DIR = DETECTION_VERSION_DIR + 'Saved_fits_Files/'
 # DATE_RANGE = ('2015_06_06__00_00', '2015_06_12__00_00')
 # DATE_DIR = 'COSPAR_2015_06_06/'
 
-# Select few dates for analysis
+# # Select few dates for analysis
 # DATE_RANGE = [
 #     '2013_02_16__18_23',
 #     '2013_06_19__15_35',

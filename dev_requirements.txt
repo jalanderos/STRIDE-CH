@@ -4,3 +4,4 @@ nbstripout==0.6.1
 
 # Exploration
 plotly==5.16.1
+# scikit-spatial==7.2.0 # LDA plane retrieval

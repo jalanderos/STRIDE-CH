@@ -28,6 +28,9 @@ OUTCOME_KEY_LIST = [
     'unsigned_flux', 'signed_flux',
     'mag_skew', 'unipolarity', 'grad_median'
 ]
+V1_1_CLASSIFY_FEATURES = [
+    'unipolarity', 'grad_median', 'cm_foreshort'
+]
 
 # Reprojection map shape scaling factors
 # Aim to match Helioprojective scale within 0.01 tolerance
@@ -1035,6 +1038,101 @@ def get_ensemble_v1_0(pre_processed_map, reprojected_mag_map,
             ~np.isnan(distinct_ch), confidence, ensemble_map_data
         )
     return ensemble_map_data, masks_by_ch, confidence_levels, unipolarity_by_ch
+
+
+def get_ensemble_v1_1(he_map_data, pre_processed_map, reprojected_mag_map,
+                      percent_of_peak_list, morph_radius_dist_list, lda,
+                      probability_threshold):
+    """Retrieve an ensemble of segmentations sorted by CH unipolarity.
+    
+    Args
+        he_map_data: Numpy array of He I observation
+        pre_processed_map: Sunpy map object to segment
+        reprojected_mag_map: Sunpy map object of magnetogram reprojected
+            to align with the ensemble map
+        percent_of_peak_list: list of float percentage measured from the zero
+            value up to or beyond the histogram value
+        morph_radius_dist_list: list of float distances in Mm for radius of
+            disk structuring element in morphological operations
+        lda: sklearn LinearDiscriminantAnalysis object to predict true CH
+            probabilities of candidate regions
+        probability_threshold: float probability in [0,1) at which to
+            threshold candidate CHs
+    Returns
+        Ensemble greyscale coronal holes mask sorted by unipolarity.
+        List of coronal holes masks.
+        List of confidence levels in mask layers.
+        Confidence assignment metric list of unipolarity.
+    """
+    # Create segmentation masks across the full solar disk of candidate
+    # regions for varied design variable combinations
+    full_disk_cand_mask_list = get_ch_mask_list_v0_5_1(
+        pre_processed_map, percent_of_peak_list, morph_radius_dist_list
+    )
+
+    # List to be extended by masks for distinct CHs from all segmentations
+    cand_masks = []
+    ones_array = np.ones_like(he_map_data)
+
+    for full_disk_cand_mask in full_disk_cand_mask_list:
+        cand_masks_in_full_disk_mask = get_map_data_by_ch(
+            ones_array, full_disk_cand_mask
+        )
+        cand_masks.extend(cand_masks_in_full_disk_mask)
+
+    num_cand = len(cand_masks)
+
+    # Compute constant area per square pixel once for all CHs
+    A_per_square_px = get_A_per_square_px(pre_processed_map)
+
+    # Array to hold candidate feature values
+    cand_feature_array = np.zeros((num_cand, len(V1_1_CLASSIFY_FEATURES)))
+
+    # TODO: Takes 10s, speed-up?
+    for cand_idx in range(num_cand):
+        distinct_cand_mask = cand_masks[cand_idx]
+        distinct_cand_map = sunpy.map.Map(
+            distinct_cand_mask, # Not flipping works right
+            pre_processed_map.meta
+        )
+        outcome_dict = get_outcomes(
+            distinct_cand_map, reprojected_mag_map, A_per_square_px,
+            he_map_data=he_map_data
+        )
+        cand_feature_values = [
+            outcome_dict[feature] for feature in V1_1_CLASSIFY_FEATURES
+        ]
+        cand_feature_array[cand_idx, :] = cand_feature_values
+
+    cand_probabilities = lda.predict_proba(cand_feature_array)[:,1]
+
+    # Sort unipolarities from greatest to least
+    sorted_idxs = np.argsort(cand_probabilities)
+
+    # Sort candidate regions from greatest to least predicted probability
+    cand_masks = [cand_masks[i] for i in sorted_idxs]
+    cand_probabilities = [
+        cand_probabilities[i] for i in sorted_idxs
+    ]
+    # Assign confidence by probability above a threshold
+    confidence_levels = np.array(
+        [(probability - probability_threshold)/(1 - probability_threshold)
+        for probability in cand_probabilities]
+    )
+    confidence_levels = np.where(
+        confidence_levels > 0, confidence_levels, 0
+    )
+
+    # Construct ensemble map by adding distinct CHs with assigned
+    # confidence level values to an empty base disk
+    ensemble_map_data = np.where(
+        ~np.isnan(np.flipud(pre_processed_map.data)), 0, np.nan
+    )
+    for distinct_cand, confidence in zip(cand_masks, confidence_levels):
+        ensemble_map_data = np.where(
+            ~np.isnan(distinct_cand), confidence, ensemble_map_data
+        )
+    return ensemble_map_data, cand_masks, confidence_levels, cand_feature_array
 
 
 # Outcome Calculation Functions

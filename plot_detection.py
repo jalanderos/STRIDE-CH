@@ -23,12 +23,12 @@ EMPTY_ARRAY = np.zeros((2,2))
 CONFIDENCE_RANGE_V1_0 = [0,1]
 
 # Primary
-# ENSEMBLE_CMAP = 'magma'
-# ENSEMBLE_BACKGROUND_OFFSET = -0.4
+ENSEMBLE_CMAP = 'magma'
+ENSEMBLE_BACKGROUND_OFFSET = -0.4
 
-# No unipolarity threshold: 3 color bands to aid unipolarity range ID
-ENSEMBLE_CMAP = 'cubehelix'
-ENSEMBLE_BACKGROUND_OFFSET = -0.2
+# # No unipolarity threshold: 3 color bands to aid unipolarity range ID
+# ENSEMBLE_CMAP = 'cubehelix'
+# ENSEMBLE_BACKGROUND_OFFSET = -0.2
 
 
 # General Visualization
@@ -349,7 +349,7 @@ def plot_ensemble(pre_processed_map_data, ensemble_map_data, map_data_by_ch,
     zipped_items = zip(axes.values(), confidence_list,
                        metric_list, ch_contour_list)
     for ax, confidence, metric, ch_contour in zipped_items:
-        ax.set_title(f'{confidence:.1f}% Confidence | {metric:.2f} Metric')
+        ax.set_title(f'{confidence:.1f}% Confidence | {metric:.3e} Metric')
         if mask_contour:
             ax.contour(ch_contour, cmap=plt.cm.gray)
         else:
@@ -446,7 +446,7 @@ def plot_he_neutral_lines_euv_v1_0(fig, he_date_str, mag_date_str,
     if not he_map:
         print(f'{he_date_str} He I observation extraction failed.')
     
-    # Extract saved ensemble map array and convert to Sunpy map
+    # Extract saved ensemble map
     ensemble_file = f'{DETECTION_MAP_SAVE_DIR}{he_date_str}_ensemble_map.fits'
     ensemble_map = sunpy.map.Map(ensemble_file)
 
