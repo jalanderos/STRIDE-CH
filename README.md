@@ -19,8 +19,7 @@ SOLIS Data: https://solis.nso.edu/0/vsm/VSMDataSearch.php?stime=1059717600&etime
 5. `plot_detection.py`: Library of functions to plot observations and data products.
 6. `v1_1_LDA_model.pkl`: File from v1.1 of the algorithm of the saved Linear Discriminant Analysis (LDA) model to derive confidence in CH status for candidate segmented regions.
 7. `acwe_lib`: Directory with code to read data products from the Active Contours Without Edges (ACWE) algorithm, whose code is available at https://github.com/DuckDuckPig/CH-ACWE, for producing fused ACWE-STRIDE-CH confidence maps.
-8. File from v1.1 of the algorithm of the saved Linear Discriminant Analysis (LDA) model to derive confidence in CH status for candidate segmented regions.
-9.  `Exploration.ipynb`: Notebook for exploratory development of STRIDE-CH. This notebook is not polished, but made visible for the sake of completeness.
+8.  `Exploration.ipynb`: Notebook for exploratory development of STRIDE-CH. This notebook is not polished, but made visible for the sake of completeness.
 
 ## Dependencies
 
