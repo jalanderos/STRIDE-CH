@@ -17,8 +17,10 @@ This format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## [1.0] - 2024-05-08
 
-### Added
 - Described by the publication linked in `README.md`
+
+### Changed
+- Confidence redefined to lie $\in [0,1]$ rather than $\in [0,100]\%$
 
 ## Past Versions Described in Code
 
