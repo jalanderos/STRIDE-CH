@@ -38,6 +38,17 @@ cd STRIDE-CH
 pip install -r requirements.txt
 ```
 
+The `moviepy` package makes video data products and requires `ffmpeg`. If it is not already installed on your machine, it may be installed on linux or mac with Homebrew:
+```
+brew install ffmpeg
+```
+
+Homebrew may be installed from https://brew.sh/. Check where `ffmpeg` is installed with:
+```
+whereis ffmpeg
+```
+Then copy the output of this into either python notebook as the value of the `os.environ['IMAGEIO_FFMPEG_EXE'] = VALUE` line.
+
 #### For Development
 
 ```
