@@ -1,6 +1,6 @@
 # Magnetic-Field Constrained Ensemble Image Segmentation of Coronal Holes
 
-[![arXiv](https://img.shields.io/badge/arXiv-2405.04731-b31b1b.svg)](https://arxiv.org/abs/2405.04731)
+[![arXiv](https://img.shields.io/badge/arXiv-2405.04731-b31b1b.svg)](https://arxiv.org/abs/2405.04731) [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.14402981.svg)](https://doi.org/10.5281/zenodo.14402981)
 
 ## Data
 
