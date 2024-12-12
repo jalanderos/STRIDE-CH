@@ -1,6 +1,7 @@
 # Magnetic-Field Constrained Ensemble Image Segmentation of Coronal Holes
 
 [![arXiv](https://img.shields.io/badge/arXiv-2405.04731-b31b1b.svg)](https://arxiv.org/abs/2405.04731)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.14402981.svg)](https://doi.org/10.5281/zenodo.14402981)
 
 ## Data
 
@@ -19,7 +20,7 @@ SOLIS Data: https://solis.nso.edu/0/vsm/VSMDataSearch.php?stime=1059717600&etime
 5. `plot_detection.py`: Library of functions to plot observations and data products.
 6. `v1_1_LDA_model.pkl`: File from v1.1 of the algorithm of the saved Linear Discriminant Analysis (LDA) model to derive confidence in CH status for candidate segmented regions.
 7. `acwe_lib`: Directory with code to read data products from the Active Contours Without Edges (ACWE) algorithm, whose code is available at https://github.com/DuckDuckPig/CH-ACWE, for producing fused ACWE-STRIDE-CH confidence maps.
-8.  `Exploration.ipynb`: Notebook for exploratory development of STRIDE-CH. This notebook is not polished, but made visible for the sake of completeness.
+8.  `Exploration.ipynb`: Notebook for exploratory development of STRIDE-CH and creating publication figures. This notebook is not polished, but made visible for the sake of completeness.
 
 ## Dependencies
 
