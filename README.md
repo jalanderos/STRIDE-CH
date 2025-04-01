@@ -1,7 +1,9 @@
 # Magnetic-Field Constrained Ensemble Image Segmentation of Coronal Holes
 
-[![arXiv](https://img.shields.io/badge/arXiv-2405.04731-b31b1b.svg)](https://arxiv.org/abs/2405.04731)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.14402981.svg)](https://doi.org/10.5281/zenodo.14402981)
+<!-- [![arXiv](https://img.shields.io/badge/arXiv-2405.04731-b31b1b.svg)](https://arxiv.org/abs/2405.04731) -->
+
+[![DOI](https://img.shields.io/badge/DOI-SolPhys-blue.svg)](https://doi.org/10.1007/s11207-024-02416-6)
+[![DOI](https://zenodo.org/badge/DOI/Zenodo.svg)](https://doi.org/10.5281/zenodo.14402981)
 
 ## Data
 
@@ -58,5 +60,4 @@ pip install -r dev_requirements.txt
 
 ## Contact
 
-Jaime A. Landeros. This project is associated with a 2021-2024 internship under the NASA Goddard Solar Physics Division.
-- Email: See jalanderos Github account
+Jaime A. Landeros, see the `jalanderos` Github account. This project is associated with a 2021-2024 internship under the NASA Goddard Solar Physics Division.
