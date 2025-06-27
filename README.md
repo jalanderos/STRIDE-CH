@@ -1,17 +1,18 @@
-# Magnetic-Field Constrained Ensemble Image Segmentation of Coronal Holes
+# STRIDE-CH
 
 <!-- [![arXiv](https://img.shields.io/badge/arXiv-2405.04731-b31b1b.svg)](https://arxiv.org/abs/2405.04731) -->
-
 [![DOI](https://img.shields.io/badge/DOI-SolPhys-blue.svg)](https://doi.org/10.1007/s11207-024-02416-6)
 [![DOI](https://zenodo.org/badge/DOI/Zenodo.svg)](https://doi.org/10.5281/zenodo.14402981)
+
+Sub-Transition Region Identification of Ensemble Coronal Holes (STRIDE-CH) is an image segmentation algorithm with uncertainty quantification for Coronal Holes (CHs) in near infrared He I images and visible light-inferred magnetograms.
 
 ## Data
 
 Tested data includes observations from the Kitt Peak Vacuum Telescope (KPVT) spectromagnetograph and Synoptic Optical Long-term Investigations of the Sun (SOLIS) Vector spectromagnetograph (VSM).
 
-KPVT Data: https://nispdata.nso.edu/ftp/kpvt/daily/raw/
+KPVT [Data Access](https://nispdata.nso.edu/ftp/kpvt/daily/raw/)
 
-SOLIS Data: https://solis.nso.edu/0/vsm/VSMDataSearch.php?stime=1059717600&etime=1701647999&thumbs=0&pagesize=150&obsmode[]=1083i&sobsmode=1&sobstype=&display=1
+SOLIS [Data Access](https://solis.nso.edu/0/vsm/VSMDataSearch.php?stime=1059717600&etime=1701647999&thumbs=0&pagesize=150&obsmode[]=1083i&sobsmode=1&sobstype=&display=1)
 
 ## Code Structure
 
