@@ -3,19 +3,24 @@ Library of functions to prepare observations for coronal hole detection.
 """
 
 import os
+import re
 import glob
 import gzip
 import shutil
-import sunpy.map
+import requests
 import numpy as np
+from pathlib import Path
 from scipy import ndimage
 from skimage import transform
-from datetime import datetime, timedelta
+from bs4 import BeautifulSoup
+from dataclasses import dataclass
+from datetime import datetime, timedelta, date
 
 import astropy.units as u
 from astropy.io import fits
 from astropy.coordinates import SkyCoord
 
+import sunpy.map
 from sunpy.coordinates import frames
 from sunpy.net import Fido, attrs as a
 from sunpy.coordinates import propagate_with_solar_surface
@@ -34,6 +39,34 @@ ACWE_DICT_DATE_STR_FORMAT = '%Y-%m-%dT%H%M%SZ'
 ACWE_SPLIT_FILE_NAME_DATE_IDX = 3
 NUM_DISPLAY_DATES = 4
 EARTH_COORD_KEYS = ['RSUN_REF', 'DSUN_OBS', 'HGLN_OBS', 'HGLT_OBS']
+
+# Data source config via Claude
+@dataclass
+class SolisDataSource:
+    """Configuration for a SOLIS VSM data archive."""
+    name:             str    # human-readable label
+    base_url:         str    # archive root URL
+    dir_prefix:       str    # prefix of daily subdirectory e.g. 'k4v22', 'k4v72'
+    file_pattern:     str    # regex matching desired filenames (anchored to basename)
+    file_preference:  list[str]  # ordered list of substring preferences when multiple files exist per day
+    dest_dir:        str        # local download directory
+
+HE_SOURCE = SolisDataSource(
+    name         = 'HeI 1083.0 intensity',
+    base_url     = 'https://solis.nso.edu/pubkeep/VSM%20HeI%201083.0,%20level%202%20intensity%20data%20_v22/',
+    dir_prefix   = 'k4v22',
+    file_pattern = r'k4v22\d{6}t\d{6}_ew\.fts\.gz',
+    file_preference = ['_ew.fts.gz'],
+    dest_dir        = HE_DIR,
+)
+MAG_SOURCE = SolisDataSource(
+    name         = 'FeI 630.15 longitudinal magnetogram',
+    base_url     = 'https://solis.nso.edu/pubkeep/VSM%20FeI%20630.15%20longitudinal,%20level%202%20magnetogram%20data%20_v72/',
+    dir_prefix   = 'k4v72',
+    file_pattern = r'k4v72\d{6}t\d{6}_mag\d\.fts\.gz',
+    file_preference = ['_mag1.fts.gz'],
+    dest_dir        = MAG_DIR,
+)
 
 
 # Extraction Functions -------------------------------------------------------
@@ -150,6 +183,240 @@ def download_euv(download_date_list, euv_date_list, sat,
         print('No EUV files were downloaded.')
 
 
+# Download He I and Magnetogram Functions via Claude -------------------------
+# ── Main crawl function ───────────────────────────────────────────────────────
+def get_available_dates(
+    source:     SolisDataSource,
+) -> list[date]:
+    """
+    Crawl a SOLIS archive and return a sorted list of dates within
+    [start_date, end_date] for which at least one matching file exists.
+    """
+    start_date = datetime.strptime(DATE_RANGE[0], DICT_DATE_STR_FORMAT).date()
+    end_date = datetime.strptime(DATE_RANGE[1], DICT_DATE_STR_FORMAT).date()
+
+    available: set[date] = set()
+
+    print(f"Source : {source.name}")
+    print(f"Range  : {start_date} → {end_date}\n")
+
+    # ── Level 1: YYYYMM top-level directories ────────────────────────────────
+    top_links  = list_hrefs(source.base_url)
+    month_dirs = [l for l in top_links if re.fullmatch(r"\d{6}/", l)]
+
+    for month_dir in sorted(month_dirs):
+        ym          = month_dir.strip("/")
+        year_m      = int(ym[:4])
+        month_m     = int(ym[4:])
+        month_start = date(year_m, month_m, 1)
+        next_month  = (month_start.replace(day=28) + timedelta(days=4)).replace(day=1)
+        month_end   = next_month - timedelta(days=1)
+
+        if month_start > end_date or month_end < start_date:
+            continue
+
+        month_url = source.base_url + month_dir
+        print(f'Scanning {ym}... ')
+
+        # ── Level 2: daily subdirectories ────────────────────────────────────
+        try:
+            day_links = list_hrefs(month_url)
+        except requests.HTTPError:
+            print(f'Error for month_dir: {month_dir}')
+            continue
+
+        day_dirs = [
+            l for l in day_links
+            if re.search(rf"{re.escape(source.dir_prefix)}\d{{6}}/$", l)
+        ]
+
+        for day_dir in sorted(day_dirs):
+            m = re.search(r"(\d{2})(\d{2})(\d{2})/$", day_dir)
+            if not m:
+                continue
+            yy, mm, dd = int(m.group(1)), int(m.group(2)), int(m.group(3))
+            day_date = date(2000 + yy, mm, dd)
+
+            if not (start_date <= day_date <= end_date):
+                continue
+
+            day_url = month_url + day_dir
+
+            # ── Level 3: find and select one matching file per day ────────────
+            try:
+                file_links = list_hrefs(day_url)
+            except requests.HTTPError:
+                print(f'Error for day_dir: {day_dir}')
+                continue
+            except requests.exceptions.ReadTimeout:
+                print(f'Repeated timeouts for day_dir: {day_dir}')
+                continue
+
+            matching = [
+                l for l in file_links
+                if re.match(source.file_pattern, l)
+            ]
+
+            chosen = select_one_file(matching, source.file_preference)
+            if chosen:
+                file_date = parse_filename_date(chosen, source.dir_prefix)
+                if file_date and start_date <= file_date <= end_date:
+                    available.add(file_date)
+
+    return sorted(available)
+
+
+# ── Main download function ────────────────────────────────────────────────────
+def download_dates(
+    source:     SolisDataSource,
+    dates:      list[date],
+    decompress: bool = True,
+) -> None:
+    """
+    Download one file per date from dates list using the source configuration.
+    Only crawls months and days present in the input date list.
+    """
+    if not dates:
+        print("No dates provided.")
+        return
+
+    Path(source.dest_dir).mkdir(parents=True, exist_ok=True)
+
+    # Group dates by YYYYMM for efficient crawling
+    months: dict[str, set[date]] = {}
+    for d in dates:
+        key = f"{d.year}{d.month:02d}"
+        months.setdefault(key, set()).add(d)
+
+    print(f"Source : {source.name}")
+    print(f"Dates  : {len(dates)} requested across {len(months)} months\n")
+
+    for ym in sorted(months):
+        target_dates = months[ym]
+        month_url    = source.base_url + ym + "/"
+        print(f"  Month {ym} ({len(target_dates)} dates) …")
+
+        # ── Level 2: daily subdirectories ────────────────────────────────────
+        try:
+            day_links = list_hrefs(month_url)
+        except (requests.HTTPError, requests.exceptions.ReadTimeout):
+            print(f"    Could not access {month_url}, skipping")
+            continue
+
+        day_dirs = [
+            l for l in day_links
+            if re.search(rf"{re.escape(source.dir_prefix)}\d{{6}}/$", l)
+        ]
+        
+        for day_dir in sorted(day_dirs):
+            match = re.search(r"(\d{2})(\d{2})(\d{2})/$", day_dir)
+            if not match:
+                print(None)
+                continue
+            yy, mm, dd = int(match.group(1)), int(match.group(2)), int(match.group(3))
+            day_date = date(2000 + yy, mm, dd)
+            if day_date not in target_dates:
+                continue
+            
+            day_url = month_url + day_dir
+            print(f"    {day_date} …")
+
+            # ── Level 3: find, select, and download one file ──────────────────
+            try:
+                file_links = list_hrefs(day_url)
+            except requests.exceptions.ReadTimeout:
+                print(f"      Timeout, skipping {day_dir.strip('/')}")
+                continue
+            except requests.HTTPError:
+                continue
+
+            matching = [
+                l for l in file_links
+                if re.match(source.file_pattern, l)
+            ]
+
+            chosen = select_one_file(matching, source.file_preference)
+            if chosen:
+                download_file(day_url + chosen, source.dest_dir, decompress)
+            else:
+                print(f"      No matching file found for {day_date}")
+
+
+# ── Core utilities ────────────────────────────────────────────────────────────
+def list_hrefs(url: str) -> list[str]:
+    """Return all href values from an Apache-style index page."""
+    resp = requests.get(url, timeout=30)
+    resp.raise_for_status()
+    soup = BeautifulSoup(resp.text, "html.parser")
+    return [a["href"] for a in soup.find_all("a", href=True)]
+
+
+def parse_filename_date(filename: str, dir_prefix: str) -> date | None:
+    """
+    Parse date from filename using dir_prefix to anchor the pattern.
+    e.g. k4v22100508t221732_ew.fts.gz → date(2010, 5, 8)
+         k4v72100508t184932_mag1.fts.gz → date(2010, 5, 8)
+    """
+    escaped = re.escape(dir_prefix)
+    m = re.search(escaped + r"(\d{2})(\d{2})(\d{2})t\d{6}", filename)
+    if not m:
+        return None
+    yy, mm, dd = int(m.group(1)), int(m.group(2)), int(m.group(3))
+    try:
+        return date(2000 + yy, mm, dd)
+    except ValueError:
+        return None
+
+
+def select_one_file(
+    files:      list[str],
+    preference: list[str],
+) -> str | None:
+    """
+    Select one file from a list according to ordered substring preferences.
+    Falls back to the first file if no preference matches.
+    """
+    for pref in preference:
+        matches = [f for f in files if pref in f]
+        if matches:
+            return matches[0]
+    return files[0] if files else None
+
+
+# ── Download utilities ────────────────────────────────────────────────────────
+def download_file(
+    url:        str,
+    dest_dir:   str,
+    decompress: bool = True,
+) -> None:
+    """Download a .fts.gz file and optionally decompress it."""
+    filename  = url.split("/")[-1]
+    dest_path = Path(dest_dir) / filename
+
+    if decompress:
+        final_path = dest_path.with_suffix("")  # strip .gz
+        if final_path.exists():
+            print(f"      already exists, skipping: {final_path.name}")
+            return
+    else:
+        if dest_path.exists():
+            print(f"      already exists, skipping: {dest_path.name}")
+            return
+
+    print(f"      downloading {filename} …")
+    with requests.get(url, stream=True, timeout=60) as r:
+        r.raise_for_status()
+        with open(dest_path, "wb") as f:
+            shutil.copyfileobj(r.raw, f)
+
+    if decompress and dest_path.suffix == ".gz":
+        print(f"      decompressing → {dest_path.stem}")
+        with gzip.open(dest_path, "rb") as gz_in:
+            with open(dest_path.with_suffix(""), "wb") as fts_out:
+                shutil.copyfileobj(gz_in, fts_out)
+        dest_path.unlink()
+
+
 # FITS File Loading and Renaming ---------------------------------------------
 def get_fits_date_list(he_date_range, data_dir):
     """Retrieve list of available date strings of FITS files in the
@@ -250,7 +517,7 @@ def get_acwe_date_list(he_date_range):
 
 
 def rename_dir(data_dir, remove_gzip=False):
-    """Rename all He FITS files to include observation date in title
+    """Rename all FITS files to include observation date in title
     """
     # Copy gzip files to FITS files and delete gzip files
     gzip_path_list = glob.glob(data_dir + '*.fts.gz')

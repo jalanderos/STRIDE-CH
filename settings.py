@@ -43,9 +43,9 @@ PREPROCESS_NPY_SAVE_DIR = PREPROCESS_DIR + 'v0_4/'
 # Detection Data Product Paths -----------------------------------------------
 # Data products of various versions
 DETECT_DIR = OUTPUT_DIR + 'Detection/'
-# DETECTION_VERSION_DIR = DETECT_DIR + 'v1_1/'
+DETECTION_VERSION_DIR = DETECT_DIR + 'v1_1/'
 # DETECTION_VERSION_DIR = DETECT_DIR + 'v1_1_No_Thresh/'
-DETECTION_VERSION_DIR = DETECT_DIR + 'v1_0/'
+# DETECTION_VERSION_DIR = DETECT_DIR + 'v1_0/'
 # DETECTION_VERSION_DIR = DETECT_DIR + 'v1_0_No_Thresh/'
 # DETECTION_VERSION_DIR = DETECT_DIR + 'v0_5_1/'
 # DETECTION_VERSION_DIR = DETECT_DIR + 'v0_5_1_KPVT/'
@@ -77,8 +77,12 @@ PAPER_PLOT_DIR = 'paper/paper_plots/2024_08_plots/'
 # Date Range Options for Detection Data Products -----------------------------
 # DATE_RANGE: tuple of start and end date or list of He I datetimes
 
-# All dates
-DATE_RANGE = ('1900_01_01__00_00', '2100_01_01__00_00')
+# # All dates
+# DATE_RANGE = ('1900_01_01__00_00', '2100_01_01__00_00')
+# DATE_DIR = 'All_Dates/'
+
+# SDO Era
+DATE_RANGE = ('2010_03_01__00_00', '2030_01_01__00_00')
 DATE_DIR = 'All_Dates/'
 
 # # KPVT period in declining Solar Cycle 23
