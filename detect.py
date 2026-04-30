@@ -1064,6 +1064,10 @@ def get_ensemble_v1_1(he_map_data, pre_processed_map, reprojected_mag_map,
         List of confidence levels in mask layers.
         Confidence assignment metric list of unipolarity.
     """
+    empty_disk = np.where(
+        ~np.isnan(np.flipud(pre_processed_map.data)), 0, np.nan
+    )
+
     # Create segmentation masks across the full solar disk of candidate
     # regions for varied design variable combinations
     full_disk_cand_mask_list = get_ch_mask_list_v0_5_1(
@@ -1081,6 +1085,9 @@ def get_ensemble_v1_1(he_map_data, pre_processed_map, reprojected_mag_map,
         cand_masks.extend(cand_masks_in_full_disk_mask)
 
     num_cand = len(cand_masks)
+
+    if num_cand == 0:
+        return empty_disk, [], [], np.zeros((0,len(V1_1_CLASSIFY_FEATURES)))
 
     # Compute constant area per square pixel once for all CHs
     A_per_square_px = get_A_per_square_px(pre_processed_map)
@@ -1103,6 +1110,13 @@ def get_ensemble_v1_1(he_map_data, pre_processed_map, reprojected_mag_map,
             outcome_dict[feature] for feature in V1_1_CLASSIFY_FEATURES
         ]
         cand_feature_array[cand_idx, :] = cand_feature_values
+    
+    if np.any(np.isnan(cand_feature_array)):
+        raise ValueError(
+            'cand_feature_array contains nan at '
+            f'{np.argwhere(np.isnan(cand_feature_array))}. '
+            'Check this date for corrupted He I and the magnetogram data.'
+        )
 
     cand_probabilities = lda.predict_proba(cand_feature_array)[:,1]
 
@@ -1124,13 +1138,10 @@ def get_ensemble_v1_1(he_map_data, pre_processed_map, reprojected_mag_map,
     )
 
     # Construct ensemble map by adding distinct CHs with assigned
-    # confidence level values to an empty base disk
-    ensemble_map_data = np.where(
-        ~np.isnan(np.flipud(pre_processed_map.data)), 0, np.nan
-    )
+    # confidence level values
     for distinct_cand, confidence in zip(cand_masks, confidence_levels):
         ensemble_map_data = np.where(
-            ~np.isnan(distinct_cand), confidence, ensemble_map_data
+            ~np.isnan(distinct_cand), confidence, empty_disk
         )
     return ensemble_map_data, cand_masks, confidence_levels, cand_feature_array
 

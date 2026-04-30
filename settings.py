@@ -33,7 +33,7 @@ ROTATED_MAG_SAVE_DIR = MAP_DIR + 'Rotated_Mag/'
 
 # Directories of preprocessed He I maps as Sunpy maps in FITS files
 # or as arrays in numpy files in older versions
-PREPROCESS_DIR = OUTPUT_DIR + 'Preprocess/'
+PREPROCESS_DIR = MAP_DIR + 'Preprocess_He/'
 # v1.0 preprocessing method has been preserved from v0.5.1
 PREPROCESS_MAP_SAVE_DIR = PREPROCESS_DIR + 'v0_5_1/'
 # Historical version preprocessing method directories
@@ -83,7 +83,7 @@ PAPER_PLOT_DIR = 'paper/paper_plots/2024_08_plots/'
 
 # SDO Era
 DATE_RANGE = ('2010_03_01__00_00', '2030_01_01__00_00')
-DATE_DIR = 'All_Dates/'
+DATE_DIR = 'SDO_Era/'
 
 # # KPVT period in declining Solar Cycle 23
 # DATE_RANGE = ('2003_07_01__00_00', '2003_08_01__00_00')
